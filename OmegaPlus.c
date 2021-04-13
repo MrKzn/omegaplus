@@ -870,7 +870,7 @@ int main(int argc, char** argv)
 	int maxomegamaxLeftIndex = -1;
 	int maxomegamaxRightIndex = -1;
 
-	double time0, time1, totalTimeL=.0, totalTimeG0 = gettime(), totalTimeG1;
+	double time0, time1, time2, time3, time4=.0, totalTimeL=.0, totalTimeG0 = gettime(), totalTimeG1;
 
   	char** recfile = malloc(sizeof(char*));
   	      *recfile = NULL;
@@ -893,6 +893,7 @@ int main(int argc, char** argv)
 
 	omega_struct * omega;
 
+	// uint32_t * qLD_res=NULL;
 	
    	commandLineParser(argc, argv, inputFileName, &grid, &alignmentLength, &minw, &maxw, recfile, 
 			  &minsnps, &imputeN, &imputeG, &binary, &seed, &fileFormat, &threads, &resultType, &ld, &borderTol, &filterOut, &noSeparation, sampleVCFfileName,
@@ -972,15 +973,17 @@ int main(int argc, char** argv)
 #ifdef _SHARED
 	compute_bits_in_16bits();
 #endif
+	// ifdef GPU?? if(gpu)??			
+	gpu_init();
+
 	srand(seed);
 
 	initializeGlobalPointers(alignment);
-	
 
 	time0 = gettime();
 
 	nxt_alignment = findFirstAlignment(alignment, fpIn,fpInfo, fileFormat, fpVCFsamples, generateVCFsamplelist, sampleVCFfileName);
-				
+
 
 	while(nxt_alignment==1)
 	{
@@ -1222,6 +1225,10 @@ int main(int argc, char** argv)
 	lvw_i=-1;
 	cvw_i=findNextValidOmega(omega, lvw_i, grid);
 
+	// qLD_res = correlate(alignment->compressedArrays[0],alignment->segsites,alignment->siteSize,SNP_GROUP_SIZE);
+
+	// qLD_res = correlate_gpu(alignment->compressedArrays[0],alignment->segsites,alignment->siteSize,SNP_GROUP_SIZE);
+
 	while(validGridP(cvw_i,grid))
 	{
 
@@ -1335,7 +1342,7 @@ int main(int argc, char** argv)
 				prev_finishIndex_tmp = cur_finishIndex_tmp;
 			}
 
-			dp_on_tiles_overlap_ptr (first_group_index, last_group_index, workgroup_map_ptr, overlap_workgroup_map_ptr, overlap, first_group_index, alignment,leftSNPindex, rightSNPindex);
+			dp_on_tiles_overlap_ptr (first_group_index, last_group_index, workgroup_map_ptr, overlap_workgroup_map_ptr, overlap, first_group_index, alignment,leftSNPindex, rightSNPindex, qLD_res);
 
 
 
@@ -1534,7 +1541,7 @@ int main(int argc, char** argv)
 				prev_finishIndex_tmp = cur_finishIndex_tmp;
 			}
 
-			dp_on_tiles_overlap_ptr (first_group_index, last_group_index, workgroup_map_ptr, overlap_workgroup_map_ptr, overlap, first_group_index, alignment,leftSNPindex, rightSNPindex);
+			dp_on_tiles_overlap_ptr (first_group_index, last_group_index, workgroup_map_ptr, overlap_workgroup_map_ptr, overlap, first_group_index, alignment,leftSNPindex, rightSNPindex, qLD_res);
 
 
 
@@ -1589,7 +1596,7 @@ int main(int argc, char** argv)
 				}
 			}
 
-
+			
 			#pragma omp parallel for private (i)
 			for(i=0;i<threads;i++)
 			{
@@ -1667,29 +1674,89 @@ int main(int argc, char** argv)
 		    alignment->correlationMatrix = createCorrelationMatrix(alignment->correlationMatrix,matrixSizeMax);
 		    
 		    lvw_i=-1;
+
+			// int max_outer = 0;
+			// int max_inner = 0;
+
+			// unsigned int cnt = 0;
+			// unsigned int * indexes = NULL;
+			// indexes = malloc(sizeof(*indexes) * grid);
+
+			// static float * omegas = NULL, * LSs = NULL, * RSs = NULL, * TSs = NULL;
+			// static int * ks = NULL, * ms = NULL;
+			
+			// omegas = malloc(sizeof(*omegas) * LOCAL_1 * GPU_BLOCK_MC * GPU_BLOCK_KC);
+			// LSs = malloc(sizeof(*LSs) * LOCAL_1 * GPU_BLOCK_MC * GPU_BLOCK_KC);
+			// RSs = malloc(sizeof(*RSs) * LOCAL_1 * GPU_BLOCK_MC * GPU_BLOCK_KC);
+			// TSs = malloc(sizeof(*TSs) * LOCAL_1 * GPU_BLOCK_MC * GPU_BLOCK_KC);
+			// ks = malloc(sizeof(*ks) * LOCAL_1 * GPU_BLOCK_MC * GPU_BLOCK_KC);
+			// ms = malloc(sizeof(*ms) * LOCAL_1 * GPU_BLOCK_MC * GPU_BLOCK_KC);
+
+			int j, err=0, iter=100;
+			float * test = NULL;
+			test = malloc(sizeof(float));
 		    
-		    for(i=0;i<grid;i++)
-		      {
-			cvw_i=findNextValidOmega(omega, lvw_i, grid);
+		    for(i=0;i<grid;i++){
+				cvw_i=findNextValidOmega(omega, lvw_i, grid);
+
+				if(validGridP(cvw_i,grid))
+				{		
+					// printf("cvw: %d\n",cvw_i);
+					overlapCorrelationMatrixAdditions (alignment, omega, lvw_i, cvw_i, 
+									&firstRowToCopy, &firstRowToCompute, &firstRowToAdd);
+					
+					shiftCorrelationMatrixValues (omega, lvw_i, cvw_i, firstRowToCopy, alignment->correlationMatrix);
+
+					computeCorrelationMatrixPairwise (alignment, omega, cvw_i, firstRowToCompute, functionData, NULL,NULL);					
+
+					applyCorrelationMatrixAdditions (omega, cvw_i,firstRowToAdd,alignment->correlationMatrix);
+
+					time2 = gettime();
+					err=clEnqueueWriteBuffer(
+							io_queue, LRkm_buffer, CL_FALSE, 0,
+							sizeof(float), test,
+							0, NULL, &events[7]
+							);
+					printCLErr(err,__LINE__,__FILE__);
+					clWaitForEvents(1, &events[7]);
+					printf("First write time: %fs\n",gettime()-time2);
+
+					time2 = gettime();
+					for(j=0;j<iter;j++){
+						computeOmegas_gpu(alignment, omega, cvw_i, functionData,NULL);
+						// computeOmegas (alignment, omega, cvw_i, functionData,NULL);
+						// computeOmegaValues_gpu4(omega, cvw_i, alignment->correlationMatrix, NULL, omegas, LSs, RSs, TSs, ks, ms);
+					}
+					printf("Compute: %f\n",(gettime()-time2)/iter);
+
+					// int outer_cnt = omega[cvw_i].leftminIndex - omega[cvw_i].leftIndex - omega[cvw_i].leftIndex - omega[cvw_i].leftIndex + 1;
+					// int inner_cnt = omega[cvw_i].rightIndex - omega[cvw_i].leftIndex - omega[cvw_i].rightminIndex - omega[cvw_i].leftIndex + 1;
+					// printf("outer: %d, inner: %d\n", outer_cnt, inner_cnt);
+					
+					// if(outer_cnt>max_outer)
+					// {
+					// 	max_outer = outer_cnt;
+					// }
+					// if(inner_cnt>max_inner)
+					// {
+					// 	max_inner = inner_cnt;
+					// }
+
+					// For writing an array of "omegaIndex" to write larger chunks of data to GPU
+					// indexes[cnt] = cvw_i;
+					// cnt++;
+					
+					lvw_i = cvw_i;
+				}
+				// break;
+				appendOmegaResultToFile (alignment, omega, i, i+1, fpReport, resultType);
+		    }
 			
-			if(validGridP(cvw_i,grid))
-			  {		
-			    overlapCorrelationMatrixAdditions (alignment, omega, lvw_i, cvw_i, 
-							       &firstRowToCopy, &firstRowToCompute, &firstRowToAdd);
-			    
-			    shiftCorrelationMatrixValues (omega, lvw_i, cvw_i, firstRowToCopy, alignment->correlationMatrix);
-			    
-			    computeCorrelationMatrixPairwise (alignment, omega, cvw_i, firstRowToCompute, functionData, NULL,NULL);					
-			    
-			    applyCorrelationMatrixAdditions (omega, cvw_i,firstRowToAdd,alignment->correlationMatrix);
-			    
-			    computeOmegas (alignment, omega, cvw_i, functionData,NULL);
-			    
-			    lvw_i = cvw_i;
-			  }
-			
-			appendOmegaResultToFile (alignment, omega, i, i+1, fpReport, resultType);
-		      }			
+			// For writing an array of "omegaIndex" to write larger chunks of data to GPU
+			// time2 = gettime();
+			// computeOmegaValues_gpu3 (omega, alignment->correlationMatrix, NULL, indexes, cnt);
+			// time4 = gettime() - time2;
+			// printf("Compute: %f\n",time4);
 #endif		    
 #endif
 
@@ -1721,6 +1788,8 @@ int main(int argc, char** argv)
 		alignmentIndex++;	
 	}
 
+	// ifdef GPU?? if(gpu)??
+	gpu_release();
 
 #ifdef _USE_PTHREADS
 #ifndef _USE_PTHREADS_MEMINT

@@ -25,6 +25,8 @@
 #ifndef _OMEGAPLUS_H
 #define _OMEGAPLUS_H
 
+#define _POSIX_C_SOURCE 200809L
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -34,6 +36,9 @@
 #include <sys/time.h>
 #include <limits.h>
 #include <ctype.h>
+// qLD ADDED
+#include <stdint.h>
+#include "gpu_kernel/blislike.h"
 
 #ifdef _USE_PTHREADS
 #include <pthread.h>
@@ -316,7 +321,7 @@ int get_SNP_groupID(int SNP_index);
 float get_Mem_GroupSize();
 void update_workgroup_map_ptr(float *** workgroup_map_ptr, int start, int finish, int first_group_index);
 void update_workgroup_map_partial_ptr(float *** workgroup_map_ptr, int start, int finish, int prev_start, int prev_finish, int first_group_index);
-void dp_on_tiles_overlap_ptr (int first_DP_tile, int last_DP_tile, float *** workgroup_map_ptr, float *** overlap_workgroup_map_ptr, int overlap, int first_group_index, alignment_struct * alignment, int leftSNPindex, int rightSNPindex);
+void dp_on_tiles_overlap_ptr (int first_DP_tile, int last_DP_tile, float *** workgroup_map_ptr, float *** overlap_workgroup_map_ptr, int overlap, int first_group_index, alignment_struct * alignment, int leftSNPindex, int rightSNPindex, uint32_t * qLD_res);
 unsigned int precomputed16_bitcount (unsigned int n);
 cor_t computeCorrelationValueBIN(int sequences, unsigned int * accumXvec);
 cor_t computeCorrelationValueDNA(int sequences, cor_t pairwiseCorrelationMatrix[4][4], unsigned int * valid);
@@ -327,3 +332,180 @@ int max(int a, int b);
 int min(int a, int b);
 float computeOmega (float LS, float RS, float TS, int k, int ksel2, int m, int msel2);
 #endif
+
+// General ADDED
+double gettime(void);
+
+// qLD ADDED
+enum gemm_block_sizes_e
+{
+    BLOCK_NC=4032,
+    BLOCK_KC=256,
+    BLOCK_MC=72,
+    BLOCK_NR=6,
+    BLOCK_MR=8
+};
+
+typedef uint64_t inputDataType_x64;
+typedef uint32_t inputDataType_x32;
+void Pack_A(uint32_t *A,
+            unsigned int lda,
+            uint32_t *A_pack,
+            unsigned int m,
+            unsigned int k);
+
+void Pack_B(uint32_t *B,
+            unsigned int ldb,
+            uint32_t *B_pack,
+            unsigned int k,
+            unsigned int n);
+
+void dgemm_ref(int k,
+               int mr_alg,
+               int nr_alg,
+               uint32_t alpha,
+               uint32_t* restrict a,
+               uint32_t* restrict b,
+               uint32_t* restrict c,
+               int rs_c,
+               int cs_c);
+
+void gemm(unsigned int m,
+          unsigned int n,
+          unsigned int k,
+		  uint32_t alphap,
+          uint32_t * A,
+          unsigned int lda,
+          uint32_t * B,
+          unsigned int ldb,
+          uint32_t * C,
+          unsigned int ldc,
+          void * Ac_pack_v,
+          void * Bc_pack_v);
+
+void mlt(unsigned int m,
+         unsigned int k,
+         uint32_t* A,
+         uint32_t* tableA);
+
+uint32_t * correlate(uint32_t* tableA,
+               int tableAsize,
+               int compressed_snp_size,
+			   int group_size);
+
+// -- GENERAL OPENCL STUFF -- //
+// macro define needed for deprecated warning
+#define CL_TARGET_OPENCL_VERSION 110
+#define CL_USE_DEPRECATED_OPENCL_1_2_APIS
+#include <CL/cl.h>
+
+// -- qLD OPENCL STUFF -- //
+#define PROGRAM_FILE "gpu_kernel/blislike.cl"
+#define KERNEL_NAME "blis_like8x4"
+#define RESULTS_PART_SIZE_GPU 4 //2*2
+#define DOUBLE unsigned int
+
+cl_platform_id *platforms;
+cl_device_id *devices;
+cl_context context;
+cl_program program;
+cl_mem    a_buffers[2];
+cl_mem    b_buffers[2];
+cl_mem    c_buffers[2];
+cl_kernel kernels[2];
+cl_command_queue io_queue;
+cl_command_queue compute_queue;
+cl_event events[4*2];
+unsigned int rs_c;
+// NOTE: since we're writing into a smaller buffer and not the full output
+// matrix, we mult by MC to get to the next row instead of the full "m".
+unsigned int cs_c;
+
+// -- OMEGA OPENCL STUFF -- //
+// #define OMEGA_NAME "omega"
+// #define OMEGA_NAME "omega2"
+// #define OMEGA_NAME "omega3"
+#define OMEGA_NAME "omega4"
+// #define OMEGA_NAME "omega5"
+
+cl_mem omega_buffer;
+cl_mem LS_buffer;
+cl_mem RS_buffer;
+cl_mem TS_buffer;
+cl_mem k_buffer;
+cl_mem m_buffer;
+cl_mem LRkm_buffer;
+cl_mem omega_im;
+cl_mem index_im;
+cl_mem index_buffer;
+cl_kernel omega_kernel;
+
+cl_uint comp_units;
+size_t group_size;
+cl_uint work_items;
+
+void gpu_init(void);
+
+void gpu_release(void);
+
+uint32_t * correlate_gpu(uint32_t* tableA,
+               int tableAsize,
+               int compressed_snp_size,
+			   int group_size);
+
+void printCLErr(cl_int err,int line, char* file);
+
+void GPU_Pack_A(inputDataType_x32 *A,
+                unsigned int lda,
+                DOUBLE *A_pack,
+                unsigned int m,
+                unsigned int k);
+
+void GPU_Pack_B(inputDataType_x32 *B,
+                unsigned int ldb,
+                DOUBLE *B_pack,
+                unsigned int k,
+                unsigned int n);
+
+void gpu_gemm(unsigned int m,
+              unsigned int n,
+              unsigned int k,
+              inputDataType_x32 *A,
+              unsigned int lda,
+              inputDataType_x32 *B,
+              unsigned int ldb,
+              inputDataType_x32 * C,
+              unsigned int ldc,
+              void * Ac_pack_v,
+              void * Bc_pack_v);
+
+void mlt_gpu(unsigned int m,
+         unsigned int k,
+         inputDataType_x32 *A,
+         inputDataType_x32* tableA);
+
+void computeOmegas_gpu (alignment_struct * alignment, omega_struct * omega, int omegaIndex, void * threadData, cor_t ** correlationMatrix);
+
+void computeOmegaValues_gpu (omega_struct * omega, int omegaIndex, cor_t ** correlationMatrix, void * threadData);
+
+void computeOmega_gpu(float * omegas, float * LSs, float * RSs, float * TSs, int * ks, int * ms, int outer_cnt, int inner_cnt, unsigned int total);
+
+void computeOmegaValues_gpu2 (omega_struct * omega, int omegaIndex, cor_t ** correlationMatrix, void * threadData);
+
+void computeOmega_gpu2(float * omegas, float * LSs, float * RSs, float * TSs, int * ks, int * ms, unsigned int total);
+/*
+void computeOmegaValues_gpu3 (omega_struct * omega, cor_t ** correlationMatrix, void * threadData, unsigned int * indexes, unsigned int cnt);
+
+void computeOmegaValues_gpu4 (omega_struct * omega, int omegaIndex, cor_t ** correlationMatrix, void * threadData, float * omegas, float * LSs, float * RSs, float * TSs, int * ks, int * ms);
+*/
+void computeOmegaValues_gpu5 (omega_struct * omega, int omegaIndex, cor_t ** correlationMatrix, void * threadData);
+
+void computeOmega_gpu5 (float * omegas, float * LRkm, float * TSs, int outer_cnt, int inner_cnt, unsigned int total);
+
+void computeOmegaValues_gpu6 (omega_struct * omega, int omegaIndex, cor_t ** correlationMatrix, void * threadData);
+
+void computeOmega_gpu6(float * maxW, unsigned int * maxI, float * LRkm, float * TSs, int outer_cnt, int inner_cnt, unsigned int total);
+
+void computeOmegaValues_gpu7 (omega_struct * omega, int omegaIndex, cor_t ** correlationMatrix, void * threadData);
+
+void computeOmega_gpu7(float * maxW, unsigned int * maxI, float * LSs, float * RSs, float * TSs, int * ks, int * ms, unsigned int total);
