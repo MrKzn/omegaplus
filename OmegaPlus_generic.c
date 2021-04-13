@@ -110,7 +110,7 @@ void count01Combs_light (int total, unsigned int inputL, unsigned int inputR, un
 	accumXvec[4] +=  precomputed16_bitcount (combAND);	
 }
 
-cor_t computePairwiseCorrelationBIN_with_border_check (alignment_struct * alignment, int s_i, int s_j, int leftSNPindex, int rightSNPindex)
+cor_t computePairwiseCorrelationBIN_with_border_check (alignment_struct * alignment, int s_i, int s_j, int leftSNPindex, int rightSNPindex, uint32_t * qLD_res)
 {
 
 	if(s_i<leftSNPindex)
@@ -144,6 +144,8 @@ cor_t computePairwiseCorrelationBIN_with_border_check (alignment_struct * alignm
 	
 //		total -= ENTRIES_PER_INT;
 	}
+
+	// accumXvec[4] = qLD_res[s_i*alignment->segsites+s_j];
 
 	accumXvec[0]=alignment->sequences-accumXvec[1];
 	accumXvec[2]=alignment->sequences-accumXvec[3];
@@ -329,12 +331,12 @@ cor_t computePairwiseCorrelationDNAGAPS_with_border_check (alignment_struct * al
 		
 }
 
-cor_t computePairwiseCorrelationGENERIC_with_border_check (alignment_struct * alignment, int s_i, int s_j, int leftSNPindex, int rightSNPindex)
+cor_t computePairwiseCorrelationGENERIC_with_border_check (alignment_struct * alignment, int s_i, int s_j, int leftSNPindex, int rightSNPindex, uint32_t* qLD_res)
 {
 
 	switch(alignment->states)
 	{	
-		case 2: return computePairwiseCorrelationBIN_with_border_check(alignment, s_i, s_j, leftSNPindex, rightSNPindex); 
+		case 2: return computePairwiseCorrelationBIN_with_border_check(alignment, s_i, s_j, leftSNPindex, rightSNPindex, qLD_res); 
 			break;
 		case 3: return computePairwiseCorrelationBINGAPS_with_border_check(alignment, s_i, s_j, leftSNPindex, rightSNPindex); 
 			break;
@@ -347,7 +349,7 @@ cor_t computePairwiseCorrelationGENERIC_with_border_check (alignment_struct * al
 	
 }
 
-void apply_dp_on_diag_triangles_ptr (float * gen_output_vector_group_ptr, int t_x_SNP_GROUP_SIZE, int t_y_SNP_GROUP_SIZE, alignment_struct * alignment, int leftSNPindex, int rightSNPindex)
+void apply_dp_on_diag_triangles_ptr (float * gen_output_vector_group_ptr, int t_x_SNP_GROUP_SIZE, int t_y_SNP_GROUP_SIZE, alignment_struct * alignment, int leftSNPindex, int rightSNPindex, uint32_t * qLD_res)
 {
 	int m=0;
 	int l=0;
@@ -361,7 +363,7 @@ void apply_dp_on_diag_triangles_ptr (float * gen_output_vector_group_ptr, int t_
 	{
 		m_SNP_GROUP_SIZE = m * SNP_GROUP_SIZE;
 		for(l=m-1;l>=0;l--) // l is col indexing
-			gen_output_vector_group_ptr[m_SNP_GROUP_SIZE+l] = computePairwiseCorrelationGENERIC_with_border_check(alignment, t_x_SNP_GROUP_SIZE+m, t_y_SNP_GROUP_SIZE+l, leftSNPindex, rightSNPindex);
+			gen_output_vector_group_ptr[m_SNP_GROUP_SIZE+l] = computePairwiseCorrelationGENERIC_with_border_check(alignment, t_x_SNP_GROUP_SIZE+m, t_y_SNP_GROUP_SIZE+l, leftSNPindex, rightSNPindex, qLD_res);
 	}
 
 
@@ -376,7 +378,7 @@ void apply_dp_on_diag_triangles_ptr (float * gen_output_vector_group_ptr, int t_
 	}	
 }
 
-void apply_dp_on_tiles_diag_one_down_ptr (float * gen_output_vector_group_ptr, float * gen_output_vector_group_above_ptr, float * gen_output_vector_group_right_ptr, int t_x_SNP_GROUP_SIZE, int t_y_SNP_GROUP_SIZE, alignment_struct * alignment, int leftSNPindex, int rightSNPindex)
+void apply_dp_on_tiles_diag_one_down_ptr (float * gen_output_vector_group_ptr, float * gen_output_vector_group_above_ptr, float * gen_output_vector_group_right_ptr, int t_x_SNP_GROUP_SIZE, int t_y_SNP_GROUP_SIZE, alignment_struct * alignment, int leftSNPindex, int rightSNPindex, uint32_t * qLD_res)
 {
 	int m=0;
 	int l=0;
@@ -387,7 +389,7 @@ void apply_dp_on_tiles_diag_one_down_ptr (float * gen_output_vector_group_ptr, f
 	{
 		m_SNP_GROUP_SIZE = m * SNP_GROUP_SIZE;
 		for(l=SNP_GROUP_SIZE-1;l>=0;l--) // l is col indexing
-			gen_output_vector_group_ptr[m_SNP_GROUP_SIZE+l] = computePairwiseCorrelationGENERIC_with_border_check(alignment, t_y_SNP_GROUP_SIZE+m, t_x_SNP_GROUP_SIZE+l, leftSNPindex, rightSNPindex);
+			gen_output_vector_group_ptr[m_SNP_GROUP_SIZE+l] = computePairwiseCorrelationGENERIC_with_border_check(alignment, t_y_SNP_GROUP_SIZE+m, t_x_SNP_GROUP_SIZE+l, leftSNPindex, rightSNPindex, qLD_res);
 	}
 
 	//DP on tile
@@ -416,7 +418,7 @@ void apply_dp_on_tiles_diag_one_down_ptr (float * gen_output_vector_group_ptr, f
 	}	
 }
 
-void apply_dp_on_tiles_all_diags_ptr (float * gen_output_vector_group_ptr, float * gen_output_vector_group_above_ptr, float * gen_output_vector_group_right_ptr, float * gen_output_vector_group_diag_ptr, int t_x_SNP_GROUP_SIZE, int t_y_SNP_GROUP_SIZE, alignment_struct * alignment, int leftSNPindex, int rightSNPindex)
+void apply_dp_on_tiles_all_diags_ptr (float * gen_output_vector_group_ptr, float * gen_output_vector_group_above_ptr, float * gen_output_vector_group_right_ptr, float * gen_output_vector_group_diag_ptr, int t_x_SNP_GROUP_SIZE, int t_y_SNP_GROUP_SIZE, alignment_struct * alignment, int leftSNPindex, int rightSNPindex, uint32_t * qLD_res)
 {
 	int m=0; 
 	int l=0;
@@ -427,7 +429,7 @@ void apply_dp_on_tiles_all_diags_ptr (float * gen_output_vector_group_ptr, float
 	{
 		m_SNP_GROUP_SIZE = m * SNP_GROUP_SIZE;
 		for(l=SNP_GROUP_SIZE-1;l>=0;l--) // l is col indexing
-			gen_output_vector_group_ptr[m_SNP_GROUP_SIZE+l] = computePairwiseCorrelationGENERIC_with_border_check(alignment, t_y_SNP_GROUP_SIZE+m, t_x_SNP_GROUP_SIZE+l, leftSNPindex, rightSNPindex);
+			gen_output_vector_group_ptr[m_SNP_GROUP_SIZE+l] = computePairwiseCorrelationGENERIC_with_border_check(alignment, t_y_SNP_GROUP_SIZE+m, t_x_SNP_GROUP_SIZE+l, leftSNPindex, rightSNPindex, qLD_res);
 	}
 
 	//DP on tile
@@ -463,7 +465,7 @@ void apply_dp_on_tiles_all_diags_ptr (float * gen_output_vector_group_ptr, float
 }
 
 
-void dp_on_tiles_overlap_ptr (int first_DP_tile, int last_DP_tile, float *** workgroup_map_ptr, float *** overlap_workgroup_map_ptr, int overlap, int first_group_index, alignment_struct * alignment, int leftSNPindex, int rightSNPindex)	
+void dp_on_tiles_overlap_ptr (int first_DP_tile, int last_DP_tile, float *** workgroup_map_ptr, float *** overlap_workgroup_map_ptr, int overlap, int first_group_index, alignment_struct * alignment, int leftSNPindex, int rightSNPindex, uint32_t * qLD_res)	
 {
 
 	int i, j, t_x;
@@ -497,7 +499,7 @@ void dp_on_tiles_overlap_ptr (int first_DP_tile, int last_DP_tile, float *** wor
 			}
 			else
 			{
-				apply_dp_on_diag_triangles_ptr (workgroup_map_ptr[t_y-first_DP_tile][t_x-first_DP_tile], t_x_SNP_GROUP_SIZE, t_y_SNP_GROUP_SIZE, alignment, leftSNPindex, rightSNPindex);
+				apply_dp_on_diag_triangles_ptr (workgroup_map_ptr[t_y-first_DP_tile][t_x-first_DP_tile], t_x_SNP_GROUP_SIZE, t_y_SNP_GROUP_SIZE, alignment, leftSNPindex, rightSNPindex, qLD_res);
 			}
 		}	
 	}
@@ -536,7 +538,7 @@ void dp_on_tiles_overlap_ptr (int first_DP_tile, int last_DP_tile, float *** wor
 				apply_dp_on_tiles_diag_one_down_ptr (workgroup_map_ptr[t_y-first_DP_tile][t_x-first_DP_tile],
 									workgroup_map_ptr[t_y-1-first_DP_tile][t_x-first_DP_tile],
 									workgroup_map_ptr[t_y-first_DP_tile][t_x+1-first_DP_tile],
-									t_x_SNP_GROUP_SIZE, t_y_SNP_GROUP_SIZE,  alignment, leftSNPindex, rightSNPindex);
+									t_x_SNP_GROUP_SIZE, t_y_SNP_GROUP_SIZE,  alignment, leftSNPindex, rightSNPindex, qLD_res);
 			}
 		}
 	}
@@ -581,7 +583,7 @@ void dp_on_tiles_overlap_ptr (int first_DP_tile, int last_DP_tile, float *** wor
 									workgroup_map_ptr[t_y-1-first_DP_tile][t_x-first_DP_tile],
 									workgroup_map_ptr[t_y-first_DP_tile][t_x+1-first_DP_tile],
 									workgroup_map_ptr[t_y-1-first_DP_tile][t_x+1-first_DP_tile],
-									t_x_SNP_GROUP_SIZE, t_y_SNP_GROUP_SIZE,  alignment, leftSNPindex, rightSNPindex);
+									t_x_SNP_GROUP_SIZE, t_y_SNP_GROUP_SIZE,  alignment, leftSNPindex, rightSNPindex, qLD_res);
 				}
 			}
 			else
@@ -820,5 +822,646 @@ void computeOmegas_generic (omega_struct * omega, int omegaIndex, float *** work
 	computeOmegaValues_generic (omega, omegaIndex, NULL, NULL, workgroup_map_ptr,  first_group_index);
 }
 
+// qLD ADDED
+void Pack_A(uint32_t *A,
+            unsigned int lda,
+            uint32_t *A_pack,
+            unsigned int m,
+            unsigned int k)
+{
+	uint32_t *A_pack_local;
+	for(unsigned int ic=0;ic<m;ic+=BLOCK_MR)
+    {
+		A_pack_local=&A_pack[ic*k];
+		unsigned int m_alg=fmin(BLOCK_MR,m-ic);
+		for(unsigned int pc=0;pc<k;pc++)
+        {
+			for(unsigned int ir=0;ir<m_alg;ir++)
+            {
+				A_pack_local[0]=A[(ic+ir)+pc*lda];
+				A_pack_local++;
+			}
+		}
+	}
+}
+
+void Pack_B(uint32_t *B,
+            unsigned int ldb,
+            uint32_t *B_pack,
+            unsigned int k,
+            unsigned int n)
+{
+    uint32_t *B_pack_local;
+	for(unsigned int jc=0;jc<n;jc+=BLOCK_NR)
+    {
+	    B_pack_local=&B_pack[jc*k];
+        unsigned int n_alg=fmin(BLOCK_NR,n-jc);
+        for(unsigned int pc=0;pc<k;pc++)
+        {
+            for(unsigned int jr=0;jr<n_alg;jr++)
+            {
+                B_pack_local[0]=B[pc+jc*ldb+jr*ldb];
+                B_pack_local++;
+            }
+        }
+    }
+}
+
+void dgemm_ref(int k,
+               int mr_alg,
+               int nr_alg,
+               uint32_t alpha,
+               uint32_t* restrict a,
+               uint32_t* restrict b,
+               uint32_t* restrict c,
+               int rs_c,
+               int cs_c)
+{
+	uint32_t ab[mr_alg*nr_alg];
+	uint32_t bj, ai;
+	unsigned int l,i,j;
+	for(i=0;i < (unsigned int)(mr_alg * nr_alg); ++i) //set 0s
+        *(ab+i)=0;
+
+	for(l=0;l < (unsigned int)k; ++l)
+    {
+		uint32_t *abij=ab;
+        for(j=0;j < (unsigned int)nr_alg; ++j)
+        {
+            bj = *(b + j);
+            for(i=0;i < (unsigned int)mr_alg; ++i)
+            {
+                ai = *(a + i);
+                if(sizeof(uint32_t) <= 4)
+                    abij[0] += __builtin_popcount(ai & bj);
+                else if(sizeof(uint32_t) < 8)
+                    abij[0] += __builtin_popcountl(ai & bj);
+                else if(sizeof(uint32_t) >= 8)
+                    abij[0] += __builtin_popcountll(ai & bj);
+                abij++;
+            }
+        }
+        a+=mr_alg;
+        b+=nr_alg;
+    }
+
+	for(i=0;i < (unsigned int)(mr_alg * nr_alg); ++i) //Scale by alpha
+        ab[i]*=alpha;
+
+	uint32_t *Cr_l;
+	uint32_t *ab_l=ab;
+
+	for(j=0;j < (unsigned int)nr_alg; ++j)
+    {
+        Cr_l=&c[j*cs_c];
+        for(i=0;i < (unsigned int)mr_alg; ++i)
+        {
+            *Cr_l += *ab_l;
+            ab_l++;
+            Cr_l += rs_c;
+        }
+    }
+}
+
+void gemm(unsigned int m,
+          unsigned int n,
+          unsigned int k,
+		  uint32_t alphap,
+          uint32_t *A,
+          unsigned int lda,
+          uint32_t *B,
+          unsigned int ldb,
+          uint32_t *C,
+          unsigned int ldc,
+          void * Ac_pack_v,
+          void * Bc_pack_v)
+{
+	uint32_t *Ac, *Bc;
+	uint32_t *Cc;
+    uint32_t *Ar, *Br;
+	uint32_t *Cr;
+    uint32_t *Ac_pack=(uint32_t *)Ac_pack_v;
+	uint32_t *Bc_pack=(uint32_t *)Bc_pack_v;
+
+    for (unsigned int jc=0; jc<n; jc+=BLOCK_NC)
+	{
+		unsigned int n_alg=fmin(BLOCK_NC,n-jc);
+		for (unsigned int pc=0; pc<k; pc+=BLOCK_KC)
+		{
+			unsigned int k_alg=fmin(BLOCK_KC,k-pc);
+
+			Bc=&B[pc+jc*ldb];
+            Pack_B(Bc, ldb, Bc_pack, k_alg, n_alg);  //PACK B
+			for (unsigned int ic=0; ic<m; ic+=BLOCK_MC)
+			{
+				unsigned int m_alg=fmin(BLOCK_MC,m-ic);
+				Ac=&A[ic+pc*lda];
+				uint32_t *Ac_pack_local=Ac_pack; // Ac pack pointer per Loop 3 thread
+                Pack_A(Ac,lda,(uint32_t*)Ac_pack_local,m_alg,k_alg); //PACK A
+				Cc=&C[ic+jc*ldc];
+                for(unsigned jr=0;jr<n_alg;jr+=BLOCK_NR)
+				{
+					unsigned int nr_alg=fmin(BLOCK_NR,n_alg-jr);
+					for(unsigned int ir=0;ir<m_alg;ir+=BLOCK_MR)
+					{
+						unsigned int mr_alg=fmin(BLOCK_MR,m_alg-ir);
+						Ar=&Ac_pack_local[ir*k_alg];
+						Br=&Bc_pack[jr*k_alg];
+						Cr=&Cc[ir+jr*ldc];
+
+                        dgemm_ref(k_alg,mr_alg,nr_alg,alphap,Ar,Br,Cr,1,ldc);
+					}
+				}
+			}
+		}
+	}
+}
+
+void mlt(unsigned int m,
+         unsigned int k,
+         uint32_t* A,
+         uint32_t* tableA)
+{
+	for(unsigned int i=0;i<m;i++)
+	{
+		for(unsigned int j=0;j<k;j++)
+		{
+			((uint32_t*)A)[j*m + i] = tableA[i*k + j];
+		}
+	}
+}
+
+uint32_t * correlate(uint32_t* tableA,
+               int tableAsize,
+               int compressed_snp_size,
+			   int group_size)
+{
+	int m=tableAsize, n=tableAsize, k=compressed_snp_size;
+    long long int i;
+    long long int tableCsize = (long long int)m*(long long int)n;
+    int pm;     //return value used for assert
+
+	void *Ac_pack_v=NULL, *Bc_pack_v=NULL, *A=NULL, *C=NULL;
+
+    pm = posix_memalign(&(Ac_pack_v), 4096,
+                        12*BLOCK_MC*BLOCK_KC*sizeof(uint32_t));
+    assert(!pm);
+    pm = posix_memalign(&(Bc_pack_v), 4096,
+                        BLOCK_KC*BLOCK_NC*sizeof(uint32_t));
+    assert(!pm);
+
+    pm = posix_memalign(&A, 4096, m*k*sizeof(uint32_t) +
+                         m*k*sizeof(uint32_t)%4096);
+    assert(!pm);
+
+    pm = posix_memalign(&C, 4096, tableCsize*sizeof(uint32_t) +
+                        tableCsize*sizeof(uint32_t)%4096);
+    assert(!pm);
+
+	uint32_t  alphap=1.0;
+
+	for(i=0;i<tableCsize;i++)
+	{
+		((uint32_t*)C)[i] = 0;
+	}
+
+    mlt(m, k, A, tableA);
+
+	gemm(m,
+			n,
+			k,
+			alphap,
+			A,
+			m,
+			tableA,
+			k,
+			C,
+			m,
+			Ac_pack_v,
+			Bc_pack_v);
+
+	// int l,o;
+	// unsigned int row=0,col=0,tx=0;
+	
+	// for(o=0;o<m/group_size;o++){
+	// 	tx=o*group_size;
+	// 	for(i=1;i<group_size;i++) // i is row indexing
+	// 	{
+	// 		row = (i+tx)*m;
+	// 		for(l=i-1;l>=0;l--){ // l is col indexing
+	// 			col = l+tx;
+	// 			if(((uint32_t*)C)[row+col]>0)
+	// 				printf("qLD row: %llu, col: %u, val: %u\n",(i+tx),col,((uint32_t*)C)[row+col]);
+	// 		}
+	// 	}
+	// }
+
+	free(Ac_pack_v);
+	free(Bc_pack_v);
+    free(A);
+    // free(C);
+
+	return ((uint32_t*)C);
+}
+
+// OPENCL STUFF GPU
+static unsigned int round_up_mult(unsigned int x, unsigned int mult) {
+    return ((x + mult - 1) / mult) * mult;
+}
+
+void GPU_Pack_A(inputDataType_x32 *A,
+        unsigned int lda,
+        DOUBLE *A_pack,
+        unsigned int m,
+        unsigned int k)
+{
+    DOUBLE *A_pack_local;
+    unsigned int m_alg;
+    //#pragma omp  parallel for num_threads(*n_threads) private(A_pack_local)
+    //  #pragma omp parallel
+    //  #pragma omp single
+    ////    #pragma omp taskloop private(A_pack_local) num_tasks((*n_threads)) label(gemm_pack)
+    //  #pragma omp taskloop private(A_pack_local) grainsize(16) label(gemm_pack)
+    for(unsigned int ic=0;ic<m;ic+=GPU_BLOCK_MR)
+    {
+        A_pack_local=&A_pack[ic*k];
+        m_alg=min(GPU_BLOCK_MR,m-ic);
+        for(unsigned int pc=0;pc<k;pc++)
+        {
+            for(unsigned int ir=0;ir<m_alg;ir++)
+            {
+                A_pack_local[0]=A[(ic+ir)+pc*lda]; //auto xtypaei...
+                A_pack_local++;
+            }
+        }
+    }
+}
+
+void GPU_Pack_B(inputDataType_x32 *B,
+        unsigned int ldb,
+        DOUBLE *B_pack,
+        unsigned int k,
+        unsigned int n)
+{
+    DOUBLE *B_pack_local;
+    unsigned int n_alg;
+    //#pragma omp parallel for num_threads(*n_threads) private(B_pack_local)
+    //  #pragma omp parallel
+    //  #pragma omp single
+    ////    #pragma omp taskloop private(B_pack_local) num_tasks((*n_threads)) label(gemm_pack)
+    //  #pragma omp taskloop private(B_pack_local) grainsize(16) label(gemm_pack)
+    for(unsigned int jc=0;jc<n;jc+=GPU_BLOCK_NR)
+    {
+        B_pack_local=&B_pack[jc*k];
+        n_alg=min(GPU_BLOCK_NR,n-jc);
+        for(unsigned int pc=0;pc<k;pc++)
+        {
+            for(unsigned int jr=0;jr<n_alg;jr++)
+            {
+                B_pack_local[0]=B[pc+jc*ldb+jr*ldb];
+                B_pack_local++;
+            }
+        }
+    }
+}
+
+void gpu_gemm(unsigned int m,
+        unsigned int n,
+        unsigned int k,
+        inputDataType_x32 *A,
+        unsigned int lda,
+        inputDataType_x32 *B,
+        unsigned int ldb,
+        inputDataType_x32 *C,
+        unsigned int ldc,
+        void *Ac_pack_v,
+        void *Bc_pack_v)
+{
+    inputDataType_x32 *Ac, *Bc;
+    inputDataType_x32 *Cc;
+    //unsigned int *Ar, *Br;
+    //unsigned int *Cr;
+    //DOUBLE beta;
+    unsigned int i=0;
+    int err;
+    const unsigned int work_dim=2;
+    size_t local[work_dim];
+    local[0]=LOCAL_0;
+    local[1]=LOCAL_1;
+    size_t global[work_dim];
+
+    // // FOR TESTING WRITE BUFFERS
+    // int pm;     //return value used for assert
+    // void *A_test=NULL, *B_test=NULL;
+    // pm=posix_memalign(&(A_test), 4096,
+    //         GPU_BLOCK_MC*GPU_BLOCK_KC*sizeof(inputDataType_x32));
+    // assert(!pm);
+    // pm=posix_memalign(&(B_test), 4096,
+    //         GPU_BLOCK_MC*GPU_BLOCK_KC*sizeof(inputDataType_x32));
+    // assert(!pm);
+
+    for(unsigned int jc=0; jc<n; jc+=GPU_BLOCK_NC)
+    {
+        unsigned int n_alg=min(GPU_BLOCK_NC,n-jc);
+
+        for(i=0; i < 2; i++)
+        {
+            err=clSetKernelArg(kernels[i], 2, sizeof(inputDataType_x32), &n_alg);
+            printCLErr(err,__LINE__,__FILE__);
+        }
+
+        unsigned int pc_iter=0;
+        for(unsigned int pc=0; pc<k; pc+=GPU_BLOCK_KC)
+        {
+            unsigned int k_alg=min(GPU_BLOCK_KC,k-pc);
+
+            for(i=0; i < 2; i++)
+            {
+                err=clSetKernelArg(kernels[i], 0, sizeof(inputDataType_x32), &k_alg);
+                printCLErr(err,__LINE__,__FILE__);
+            }
+
+            //beta=*betap;
+
+            Bc=&B[pc+jc*ldb];
+            GPU_Pack_B(Bc, ldb, Bc_pack_v, k_alg, n_alg);
+
+            // TODO: double buffer B, don't just use b_buffers[0]
+            // printf("\nwriting b (k: %u, n: %u)\n", k_alg, n_alg);
+
+            // NOTE: getting CL_MEM_OBJECT_ALLOCATION_FAILURE when
+            // KC*NC*sizeof(uint) is too big... but not more than max_alloc??
+
+            // NOTE: don't have to use an event here since
+            //        io_queue is processed in-order
+            err=clEnqueueWriteBuffer(
+                    io_queue, b_buffers[pc_iter % 2], CL_FALSE, 0,
+                    k_alg*n_alg*sizeof(inputDataType_x32), Bc_pack_v,
+                    0, NULL, &events[(pc_iter % 2)*4]
+                    );
+            printCLErr(err,__LINE__,__FILE__);
+
+            // // ADDED
+            // // Check if "Bc_pack_v" is correctly written by reading from GPU
+            // err=clEnqueueReadBuffer(
+            //         io_queue, b_buffers[pc_iter % 2], CL_FALSE, 0,
+            //         k_alg*n_alg*sizeof(inputDataType_x32), B_test,
+            //         1, &events[(pc_iter % 2)*4], NULL
+            //         );
+            // printCLErr(err,__LINE__,__FILE__);
+
+            // for(int kl = 0; kl < k_alg*n_alg; kl++){
+            //     if(((uint32_t*)B_test)[kl] != ((uint32_t*)Bc_pack_v)[kl])
+            //         printf("FAULT\n");
+            // }
+
+            // printf("write done\n");
+            // set both kernels to use this iteration's b_buffer
+            for(i=0; i < 2; i++)
+            {
+                err=clSetKernelArg(
+                        kernels[i], 4, sizeof(cl_mem), &b_buffers[pc_iter % 2]
+                        );
+                printCLErr(err,__LINE__,__FILE__);
+            }
+
+            unsigned int ic_iter=0;
+            // write A, write C, kernel, read C (*2 for double buffer)
+
+            for(unsigned int ic=0; ic<m; ic+=GPU_BLOCK_MC)
+            {
+
+                unsigned int m_alg=min(GPU_BLOCK_MC,m-ic);
+
+                // m_alg is MC until it is the tail
+                // global is going to be derived from m_alg/n_alg.
+                // at - least as big as NR/MR (1 block).
+                // ceiling division
+                // TODO: figure this out for larger MR/NR
+                // global[0]=((max(m_alg, LOCAL_0) + LOCAL_0 - 1) / LOCAL_0) * LOCAL_0 / GPU_BLOCK_MR;
+                global[0]=round_up_mult(
+                        round_up_mult(m_alg, LOCAL_0), BLOCK_SIZE_X
+                        ) / BLOCK_SIZE_X * LOCAL_0;
+                // (((n_alg + LOCAL_0 - 1)/LOCAL_0) * LOCAL_0) * LOCAL_0 / BLOCK_SIZE_X;
+                global[1]=round_up_mult(
+                        round_up_mult(n_alg, LOCAL_1), BLOCK_SIZE_Y
+                        ) / BLOCK_SIZE_Y * LOCAL_1;
+
+                global[0]=max(global[0], local[0]);
+                global[1]=max(global[1], local[1]);
+
+                // global[0]=round_up_mult(
+                //   round_up_mult(n_alg, LOCAL_0) * LOCAL_0, BLOCK_SIZE_X
+                // ) / BLOCK_SIZE_X;
+                // // (((n_alg + LOCAL_0 - 1)/LOCAL_0) * LOCAL_0) * LOCAL_0 / BLOCK_SIZE_X;
+                // global[1]=round_up_mult(
+                //   round_up_mult(m_alg, LOCAL_1) * LOCAL_1, BLOCK_SIZE_Y
+                // ) / BLOCK_SIZE_Y;
 
 
+
+                //(((m_alg + LOCAL_1 - 1)/LOCAL_1) * LOCAL_1) * LOCAL_1 / BLOCK_SIZE_Y;
+                // global[1]=((max(n_alg, LOCAL_1) + LOCAL_1 - 1) / LOCAL_1) * LOCAL_1 / GPU_BLOCK_NR;
+
+                err=clSetKernelArg(
+                        kernels[ic_iter % 2], 1, sizeof(inputDataType_x32), &m_alg
+                        );
+                printCLErr(err,__LINE__,__FILE__);
+
+                Ac=&A[ic+pc*lda];
+                GPU_Pack_A(Ac,lda,Ac_pack_v,m_alg,k_alg);
+
+                Cc=&C[ic+jc*ldc];
+
+                for(i=0; i < n_alg; ++i)
+                {
+                    // for(i=0; i < GPU_BLOCK_NC; ++i) {
+                    err=clEnqueueWriteBuffer(
+                            io_queue, c_buffers[ic_iter % 2], CL_FALSE,
+                            i*cs_c*sizeof(inputDataType_x32),
+                            m_alg*sizeof(inputDataType_x32), &Cc[i*ldc],
+                            //GPU_BLOCK_MC*sizeof(unsigned int), &Cc[i*ldc],
+                            0, NULL, NULL
+                            );
+                    printCLErr(err,__LINE__,__FILE__);
+                }
+
+                // printf("writing a\n");
+
+                err=clEnqueueWriteBuffer(
+                        io_queue, a_buffers[ic_iter % 2], CL_FALSE, 0,
+                        m_alg*k_alg*sizeof(inputDataType_x32), Ac_pack_v,
+                        0, NULL, &events[(ic_iter % 2)*4]
+                        );
+                printCLErr(err,__LINE__,__FILE__);
+
+                // // ADDED
+                // // Check if "Ac_pack_v" is correctly written by reading from GPU
+                // err=clEnqueueReadBuffer(
+                //         io_queue, a_buffers[ic_iter % 2], CL_FALSE, 0,
+                //         k_alg*n_alg*sizeof(inputDataType_x32), A_test,
+                //         1, &events[(ic_iter % 2)*4], NULL
+                //         );
+                // printCLErr(err,__LINE__,__FILE__);
+
+                // for(int kl = 0; kl < k_alg*n_alg; kl++){
+                //     if(((uint32_t*)A_test)[kl] != ((uint32_t*)Ac_pack_v)[kl])
+                //         printf("FAULT\n");
+                // }
+
+                // assuming C starts cleared, but we want to += if iterating over k (pc)
+                // for(i=0; i < n_alg; ++i) {
+                //   memcpy(
+                //     &(c_sub_matrix[ic_iter % 2][i*cs_c]), &Cc[i*ldc], m_alg*sizeof(unsigned int)
+                //   );
+                // }
+                //
+                // err=clEnqueueWriteBuffer(
+                //   io_queue, c_buffers[ic_iter % 2], CL_FALSE, 0,
+                //   GPU_BLOCK_MC*GPU_BLOCK_NC*sizeof(unsigned int),
+                //                                             c_sub_matrix[ic_iter % 2],
+                //   0, NULL, &events[(ic_iter % 2)*4 + 1]
+                // );
+                // printCLErr(err,__LINE__,__FILE__);
+
+
+                // printf(
+                //   "\nm: %u, n: %u, k: %u, ic: %u, jc: %u, loc: %lu,%lu, glob: %lu,%lu\n",
+                //   m_alg, n_alg, k_alg, ic, jc, local[0], local[1], global[0], global[1]
+                // );
+
+                err=clEnqueueNDRangeKernel(
+                        io_queue, kernels[ic_iter % 2], work_dim, NULL, global, local,	// WAS COMPUTE_QUEUE
+                        1, &events[(ic_iter % 2)*4], &events[(ic_iter % 2)*4 + 2]
+                        );
+                printCLErr(err,__LINE__,__FILE__);
+
+                // err=clEnqueueReadBuffer(
+                //   io_queue, c_buffers[ic_iter % 2], CL_TRUE, 0,
+                //   GPU_BLOCK_MC*GPU_BLOCK_NC*sizeof(unsigned int),
+                //                                               c_sub_matrix[ic_iter % 2],
+                //   1, &events[(ic_iter % 2)*4 + 2], &events[(ic_iter % 2)*4 + 3]
+                // );
+                // printCLErr(err,__LINE__,__FILE__);
+
+                // printf("\n");
+                // print_matrix(c_sub_matrix[0], GPU_BLOCK_MC, GPU_BLOCK_NC);
+                // printf("\n");
+
+                // add event timing (since kernel is done -- TODO: make this callback too)
+
+                for(i=0; i < n_alg; ++i)
+                {
+                    // for(i=0; i < GPU_BLOCK_NC; ++i) {
+                    err=clEnqueueReadBuffer(
+                            io_queue, c_buffers[ic_iter % 2], CL_FALSE,
+                            i*cs_c*sizeof(inputDataType_x32),
+                            m_alg*sizeof(inputDataType_x32), &Cc[i*ldc],
+                            // GPU_BLOCK_MC*sizeof(unsigned int), &Cc[i*ldc],
+                            1, &events[(ic_iter % 2)*4 + 2], NULL
+                            );
+                    printCLErr(err,__LINE__,__FILE__);
+                }
+
+                //                getc(stdin); //used to pause program for monitoring - MPAMPIS -
+
+                clFinish(io_queue);
+                clFinish(compute_queue);
+
+                // TODO: do this in a callback function and make read C asynchronous
+                // n_alg rows, each row ldc or cs_c
+                // for(i=0; i < n_alg; ++i) {
+                //   memcpy(
+                //     &Cc[i*ldc], &(c_sub_matrix[ic_iter % 2][i*cs_c]),
+                //     m_alg*sizeof(unsigned int)
+                //   );
+                // }
+
+                ic_iter += 1;
+            }
+            pc_iter += 1;
+        }
+    }
+}
+
+void mlt_gpu(unsigned int m,
+        unsigned int k,
+        inputDataType_x32 *A,
+        inputDataType_x32 *tableA)
+{
+    for(unsigned int i=0;i<m;i++)
+    {
+        for(unsigned int j=0;j<k;j++)
+        {
+            ((inputDataType_x32*)A)[j*m + i]=tableA[i*k + j];
+        }
+    }
+}
+
+uint32_t * correlate_gpu(uint32_t* tableA,
+               int tableAsize,
+               int compressed_snp_size,
+			   int group_size)
+{
+    int m=tableAsize, n=tableAsize, k=compressed_snp_size; 
+    long long int i;
+    long long int tableCsize = (long long int)m*(long long int)n;
+    int pm;     //return value used for assert
+
+    void *Ac_pack_v=NULL, *Bc_pack_v=NULL, *A=NULL, *C=NULL;
+    pm=posix_memalign(&(Ac_pack_v), 4096,
+            12*GPU_BLOCK_MC*GPU_BLOCK_KC*sizeof(inputDataType_x32));
+    assert(!pm);
+    pm=posix_memalign(&(Bc_pack_v), 4096,
+            GPU_BLOCK_KC*GPU_BLOCK_NC*sizeof(inputDataType_x32));
+    assert(!pm);
+
+    pm=posix_memalign(&A, 4096, m*k*sizeof(inputDataType_x32) +
+            m*k*sizeof(inputDataType_x32)%4096);
+    assert(!pm);
+    pm=posix_memalign(&C, 4096, tableCsize*sizeof(inputDataType_x32) +
+            tableCsize*sizeof(inputDataType_x32)%4096);
+    assert(!pm);
+
+    for(i=0;i<tableCsize;i++)
+    {
+        ((inputDataType_x32*)C)[i]=0;
+    }
+
+    mlt_gpu(m, k, A, tableA);
+
+    gpu_gemm(m,
+            n,
+            k,
+            A,
+            m,
+            tableA,
+            k,
+            C,
+            m,
+            Ac_pack_v,
+            Bc_pack_v);
+
+    // int l,o;
+	// unsigned int row=0,col=0,tx=0;
+	
+	// for(o=0;o<m/group_size;o++){
+	// 	tx=o*group_size;
+	// 	for(i=1;i<group_size;i++) // i is row indexing
+	// 	{
+	// 		row = (i+tx)*m;
+	// 		for(l=i-1;l>=0;l--){ // l is col indexing
+	// 			col = l+tx;
+	// 			if(((uint32_t*)C)[row+col]>0)
+	// 				printf("qLD row: %llu, col: %u, val: %u\n",(i+tx),col,((uint32_t*)C)[row+col]);
+	// 		}
+	// 	}
+	// }
+
+	free(Ac_pack_v);
+	free(Bc_pack_v);
+    free(A);
+    // free(C);
+
+	return ((uint32_t*)C);
+}
