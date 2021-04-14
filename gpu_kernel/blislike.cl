@@ -827,3 +827,39 @@ __kernel void omega5 (
     }
   }
 }
+
+__kernel void omega6 (
+    __global float *omega_global, __global unsigned int *index_global, __constant float *lrkm, 
+    __constant float *ts, int inner, unsigned int iter
+) {
+  unsigned int ig = get_global_id(0);
+  unsigned int ic = ig * iter;
+
+  float numerator, denominator, maxW=0.0, tmpW;
+  unsigned int maxI, l, id, io, ii, vk, ksel, vm, msel;
+  
+  for(l = 0; l < iter; l++){    // Read "4 bytes/cycle" more reads higher speeds
+    id = l + ic;
+    io = (int)(id / inner) * 2 + (2 * inner);//((int)(id / inner) << 1) + (inner << 1);
+    ii = (id % inner) * 2;//(id % inner) << 1;
+
+    vk = (int)lrkm[io+1];
+    ksel = (vk * (vk-1)) / 2;//(vk * (vk-1)) >> 1;
+
+    vm = (int)lrkm[ii+1];
+    msel = (vm * (vm-1)) / 2;//(vm * (vm-1)) >> 1;
+
+    numerator = (lrkm[io] + lrkm[ii]) / (ksel + msel);
+
+    denominator = (ts[id] - lrkm[io] - lrkm[ii]) / (vk*vm) + 0.00001;
+
+    tmpW = numerator / denominator;
+
+    if(tmpW > maxW){
+      maxW = tmpW;
+      maxI = id;
+    }
+  }
+  omega_global[ig] = maxW;
+  index_global[ig] = maxI;
+}

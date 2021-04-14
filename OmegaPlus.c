@@ -1693,8 +1693,8 @@ int main(int argc, char** argv)
 			// ms = malloc(sizeof(*ms) * LOCAL_1 * GPU_BLOCK_MC * GPU_BLOCK_KC);
 
 			int j, err=0, iter=100;
-			float * test = NULL;
-			test = malloc(sizeof(float));
+			// float * test = NULL;
+			// test = malloc(sizeof(float));
 		    
 		    for(i=0;i<grid;i++){
 				cvw_i=findNextValidOmega(omega, lvw_i, grid);
@@ -1711,15 +1711,15 @@ int main(int argc, char** argv)
 
 					applyCorrelationMatrixAdditions (omega, cvw_i,firstRowToAdd,alignment->correlationMatrix);
 
-					time2 = gettime();
-					err=clEnqueueWriteBuffer(
-							io_queue, LRkm_buffer, CL_FALSE, 0,
-							sizeof(float), test,
-							0, NULL, &events[7]
-							);
-					printCLErr(err,__LINE__,__FILE__);
-					clWaitForEvents(1, &events[7]);
-					printf("First write time: %fs\n",gettime()-time2);
+					// time2 = gettime();
+					// err=clEnqueueWriteBuffer(
+					// 		io_queue, LRkm_buffer, CL_FALSE, 0,
+					// 		sizeof(float), test,
+					// 		0, NULL, &events[7]
+					// 		);
+					// printCLErr(err,__LINE__,__FILE__);
+					// clWaitForEvents(1, &events[7]);
+					// printf("First write time: %fs\n",gettime()-time2);
 
 					time2 = gettime();
 					for(j=0;j<iter;j++){
