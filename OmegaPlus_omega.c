@@ -1635,11 +1635,14 @@ void computeOmegaValues_gpu6 (omega_struct * omega, int omegaIndex, cor_t ** cor
 
 	outer_cnt = leftMinIndex - leftMaxIndex + 1;
 	inner_cnt = rightMaxIndex - rightMinIndex + 1;
-	in_out_cnt = outer_cnt + inner_cnt;
 	total = outer_cnt * inner_cnt;
-	
+
 	const size_t global = work_items;
 	unsigned int work_total = ((total + (global - 1)) / global) * global;	//Faster??
+
+	unsigned int outer_work = ((work_total + (inner_cnt - 1)) / inner_cnt);
+
+	in_out_cnt = outer_work + inner_cnt;
 
 	omegas = malloc(sizeof(*omegas)*global);
 	indexes = malloc(sizeof(*indexes)*global);
@@ -1681,6 +1684,11 @@ void computeOmegaValues_gpu6 (omega_struct * omega, int omegaIndex, cor_t ** cor
 
 	for (i=total;i<work_total;i++){
 		TSs[i] = 0;
+	}
+
+	for (i=outer_cnt+inner_cnt;i<in_out_cnt;i++){
+		LR[i] = 1;
+		km[i] = 1;
 	}
 
 	// mtime0 = gettime();
@@ -1813,11 +1821,14 @@ void computeOmegaValues_gpu7 (omega_struct * omega, int omegaIndex, cor_t ** cor
 
 	outer_cnt = leftMinIndex - leftMaxIndex + 1;
 	inner_cnt = rightMaxIndex - rightMinIndex + 1;
-	in_out_cnt = outer_cnt + inner_cnt;
 	total = outer_cnt * inner_cnt;
 	
 	const size_t global = work_items;
 	unsigned int work_total = ((total + (global - 1)) / global) * global;	//Faster??
+
+	unsigned int outer_work = ((work_total + (inner_cnt - 1)) / inner_cnt);
+
+	in_out_cnt = outer_work + inner_cnt;
 
 	omegas = malloc(sizeof(*omegas)*global);
 	indexes = malloc(sizeof(*indexes)*global);
@@ -1861,6 +1872,11 @@ void computeOmegaValues_gpu7 (omega_struct * omega, int omegaIndex, cor_t ** cor
 		TSs[i] = 0;
 	}
 
+	for (i=outer_cnt+inner_cnt;i<in_out_cnt;i++){
+		LR[i] = 1;
+		km[i] = 1;
+	}
+
 	// mtime0 = gettime();
 	computeOmega_gpu7(omegas, indexes, LR, km, TSs, in_out_cnt, inner_cnt, work_total);
 	// mtime1 = gettime();
@@ -1893,7 +1909,7 @@ void computeOmegaValues_gpu7 (omega_struct * omega, int omegaIndex, cor_t ** cor
 }
 
 void computeOmega_gpu8(float * omegas, unsigned int * indexes, float * LR, int * km, float * TSs, int out_in_cnt, int inner_cnt, unsigned int total, unsigned long int global){
-	// static cl_ulong p_start, p_end, p_total=0;
+	static cl_ulong p_start, p_end, p_total=0;
 
 	int err=0;
 	const size_t local = group_size;
@@ -1934,24 +1950,24 @@ void computeOmega_gpu8(float * omegas, unsigned int * indexes, float * LR, int *
 			);
 	printCLErr(err,__LINE__,__FILE__);
 
-	// clWaitForEvents(1, &events[1]);
+	clWaitForEvents(1, &events[1]);
 
-    // err=clGetEventProfilingInfo(events[1], CL_PROFILING_COMMAND_START, sizeof(cl_ulong),
-    //                         &p_start, NULL);
-	// printCLErr(err,__LINE__,__FILE__);
-    // err=clGetEventProfilingInfo(events[1], CL_PROFILING_COMMAND_END, sizeof(cl_ulong),
-    //                         &p_end, NULL);
-	// printCLErr(err,__LINE__,__FILE__);
+    err=clGetEventProfilingInfo(events[1], CL_PROFILING_COMMAND_START, sizeof(cl_ulong),
+                            &p_start, NULL);
+	printCLErr(err,__LINE__,__FILE__);
+    err=clGetEventProfilingInfo(events[1], CL_PROFILING_COMMAND_END, sizeof(cl_ulong),
+                            &p_end, NULL);
+	printCLErr(err,__LINE__,__FILE__);
 
-	// p_total += p_end - p_start;
+	p_total += p_end - p_start;
 
-	// printf("Compute: %lu\n",p_total);
+	printf("Compute: %lu\n",p_total);
 
 	//read back omega values in omega buffer
 	err=clEnqueueReadBuffer(
 			io_queue, omega_buffer, CL_FALSE, 0,
 			global*sizeof(float), omegas,
-			1, &events[1], NULL
+			0, NULL, NULL
 			);
 	printCLErr(err,__LINE__,__FILE__);
 
@@ -2392,7 +2408,7 @@ void computeOmegas (alignment_struct * alignment, omega_struct * omega, int omeg
 
 void computeOmegas_gpu (alignment_struct * alignment, omega_struct * omega, int omegaIndex, void * threadData, cor_t ** correlationMatrix)
 {
-	computeOmegaValues_gpu7 (omega, omegaIndex, alignment->correlationMatrix, NULL);
+	computeOmegaValues_gpu8 (omega, omegaIndex, alignment->correlationMatrix, NULL);
 }
 #endif
 
@@ -2723,7 +2739,7 @@ void gpu_init(void)
 
 	group_size = max_group_size/2; //pref_group_size; //variate!!
 
-	work_items = comp_units * group_size;			//variate!!
+	work_items = comp_units * group_size * 4;			//variate!!
 
 	printf("Set work-group size: %lu, Set work-items: %lu\n", group_size, work_items);
 
