@@ -721,10 +721,11 @@ __kernel void omega4 (
   unsigned int ic = ig * iter;
 
   float numerator, denominator, maxW=0.0, tmpW;
-  unsigned int maxI, l, id, io, ii, vk, ksel, vm, msel;
+  unsigned int maxI, l, id, io, ii;
+  int vk, ksel, vm, msel;
   
   for(l = 0; l < iter; l++){    // Read "4 bytes/cycle" more reads higher speeds
-    id = l + ic;
+    id = ic + l;
     io = (int)(id / inner) * 2 + (2 * inner);//((int)(id / inner) << 1) + (inner << 1);
     ii = (id % inner) * 2;//(id % inner) << 1;
 
@@ -783,10 +784,11 @@ __kernel void omega5 (
   unsigned int ic = ig * iter;
 
   float numerator, denominator, maxW=0.0, tmpW;
-  unsigned int maxI, l, id, io, ii, ksel, msel;
+  unsigned int maxI, l, id, io, ii;
+  int ksel, msel;
   
   for(l = 0; l < iter; l++){    // Read "4 bytes/cycle" more reads higher speeds? Bank?
-    id = l + ic;
+    id = ic + l;
 
     ksel = k[id] * (k[id]-1) / 2;
 
@@ -829,34 +831,322 @@ __kernel void omega5 (
 }
 
 __kernel void omega6 (
-    __global float *omega_global, __global unsigned int *index_global, __constant float *lrkm, 
-    __constant float *ts, int inner, unsigned int iter
+    __global float *omega_global, __global unsigned int *index_global, __constant float *lr, 
+    __constant float *ts, __constant int *km, int inner, unsigned int iter
 ) {
   unsigned int ig = get_global_id(0);
   unsigned int ic = ig * iter;
 
   float numerator, denominator, maxW=0.0, tmpW;
-  unsigned int maxI, l, id, io, ii, vk, ksel, vm, msel;
+  unsigned int maxI, i, id, io, ii;
+  int vk, ksel, vm, msel;
   
-  for(l = 0; l < iter; l++){    // Read "4 bytes/cycle" more reads higher speeds
-    id = l + ic;
-    io = (int)(id / inner) * 2 + (2 * inner);//((int)(id / inner) << 1) + (inner << 1);
-    ii = (id % inner) * 2;//(id % inner) << 1;
+  for(i = 0; i < iter; i++){    // Read "4 bytes/cycle" more reads higher speeds?
+    id = ic + i;
+    io = id / inner + inner;
+    ii = id % inner;
 
-    vk = (int)lrkm[io+1];
+    vk = km[io];
     ksel = (vk * (vk-1)) / 2;//(vk * (vk-1)) >> 1;
 
-    vm = (int)lrkm[ii+1];
+    vm = km[ii];
     msel = (vm * (vm-1)) / 2;//(vm * (vm-1)) >> 1;
 
-    numerator = (lrkm[io] + lrkm[ii]) / (ksel + msel);
+    numerator = (lr[io] + lr[ii]) / (ksel + msel);
 
-    denominator = (ts[id] - lrkm[io] - lrkm[ii]) / (vk*vm) + 0.00001;
+    denominator = (ts[id] - lr[io] - lr[ii]) / (vk*vm) + 0.00001;
 
     tmpW = numerator / denominator;
 
     if(tmpW > maxW){
       maxW = tmpW;
+      maxI = id;
+    }
+  }
+  omega_global[ig] = maxW;
+  // omega_global[ig+1] = (float)maxI;
+  index_global[ig] = maxI;
+}
+
+__kernel void omega7 (
+    __global float *omega_global, __global unsigned int *index_global, __constant float *lr, 
+    __constant float *ts, __constant int *km, int inner, unsigned int iter
+) {
+  unsigned int ig = get_global_id(0);
+  unsigned int ic = ig * iter;
+
+  const float den_off = 0.00001f;
+  float maxW=0.0;
+  unsigned int maxI, i, id, lf = 4;
+
+  float l1, l2, l3, l4;
+  float r1, r2, r3, r4;
+  float t1, t2, t3, t4;
+  float n1, n2, n3, n4;
+  float d1, d2, d3, d4;
+  float tmp1, tmp2, tmp3, tmp4;
+
+  int k1, k2, k3, k4;
+  int m1, m2, m3, m4;
+  int ks1, ks2, ks3, ks4;
+  int ms1, ms2, ms3, ms4;
+
+  unsigned int io1, io2, io3, io4;
+  unsigned int ii1, ii2, ii3, ii4;
+
+  // io = (ic / inner) + inner;
+  // ii = ic % inner;
+  // rest = inner - ii - 4;
+  // bool done = true;
+  // if(rest < iter)
+  //   done = false;
+
+  for(i = 0; i+lf-1 < iter; i+=lf){
+    id = ic + i;
+    io1 = (id / inner) + inner;
+    io2 = ((id + 1) / inner) + inner;
+    io3 = ((id + 2) / inner) + inner;
+    io4 = ((id + 3) / inner) + inner;
+
+    ii1 = id % inner;
+    ii2 = (id + 1) % inner;
+    ii3 = (id + 2) % inner;
+    ii4 = (id + 3) % inner;
+
+    l1 = lr[io1];
+    l2 = lr[io2];
+    l3 = lr[io3];
+    l4 = lr[io4];
+
+    k1 = km[io1];
+    k2 = km[io2];
+    k3 = km[io3];
+    k4 = km[io4];
+
+    r1 = lr[ii1];
+    r2 = lr[ii2];
+    r3 = lr[ii3];
+    r4 = lr[ii4];
+    
+    m1 = km[ii1];
+    m2 = km[ii2];
+    m3 = km[ii3];
+    m4 = km[ii4];
+    
+    t1 = ts[id];
+    t2 = ts[id + 1];
+    t3 = ts[id + 2];
+    t4 = ts[id + 3];
+
+    /*if(i > rest){
+      int index1 = (ic    ) / inner + inner;
+      int index2 = (ic + 1) / inner + inner;
+      int index3 = (ic + 2) / inner + inner;
+      int index4 = (ic + 3) / inner + inner;
+      l1 = lr[index1];
+      l2 = lr[index2];
+      l3 = lr[index3];
+      l4 = lr[index4];
+
+      k1 = km[index1];
+      k2 = km[index2];
+      k3 = km[index3];
+      k4 = km[index4];
+      
+      int index11 = (ic    ) % inner;
+      int index21 = (ic + 1) % inner;
+      int index31 = (ic + 2) % inner;
+      int index41 = (ic + 3) % inner;
+
+      r1 = lr[index11];
+      r2 = lr[index21];
+      r3 = lr[index31];
+      r4 = lr[index41];
+
+      m1 = km[index11];
+      m2 = km[index21];
+      m3 = km[index31];
+      m4 = km[index41];
+
+      io++;
+      ii = i - rest;
+    }
+    ii++;
+    ic++;
+    */
+    ks1 = (k1 * (k1-1)) / 2;
+    ks2 = (k2 * (k2-1)) / 2;
+    ks3 = (k3 * (k3-1)) / 2;
+    ks4 = (k4 * (k4-1)) / 2;
+
+    ms1 = (m1 * (m1-1)) / 2;
+    ms2 = (m2 * (m2-1)) / 2;
+    ms3 = (m3 * (m3-1)) / 2;
+    ms4 = (m4 * (m4-1)) / 2;
+
+    n1 = (l1 + r1) / (ks1 + ms1);
+    n2 = (l2 + r2) / (ks2 + ms2);
+    n3 = (l3 + r3) / (ks3 + ms3);
+    n4 = (l4 + r4) / (ks4 + ms4);
+
+    d1 = (t1 - l1 - r1) / (k1 * m1) + den_off;
+    d2 = (t2 - l2 - r2) / (k2 * m2) + den_off;
+    d3 = (t3 - l3 - r3) / (k3 * m3) + den_off;
+    d4 = (t4 - l4 - r4) / (k4 * m4) + den_off;
+
+    tmp1 = n1 / d1;
+    tmp2 = n2 / d2;
+    tmp3 = n3 / d3;
+    tmp4 = n4 / d4;
+
+    if(tmp1 > maxW){
+      maxW = tmp1;
+      maxI = id;
+    }
+    if(tmp2 > maxW){
+      maxW = tmp2;
+      maxI = id + 1;
+    }
+    if(tmp3 > maxW){
+      maxW = tmp3;
+      maxI = id + 2;
+    }
+    if(tmp4 > maxW){
+      maxW = tmp4;
+      maxI = id + 3;
+    }
+  }
+  for(/*emp*/;i<iter;i++){
+    id = ic + i;
+    io1 = (id / inner) + inner;
+    ii1 = id % inner;
+
+    l1 = lr[io1];
+    k1 = km[io1];
+    r1 = lr[ii1];
+    m1 = km[ii1];
+    t1 = ts[id];
+
+    ks1 = (k1 * (k1-1)) / 2;
+
+    ms1 = (m1 * (m1-1)) / 2;
+
+    n1 = (l1 + r1) / (ks1 + ms1);
+
+    d1 = (t1 - l1 - r1) / (k1 * m1) + den_off;
+
+    tmp1 = n1 / d1;
+    
+    if(tmp1 > maxW){
+      maxW = tmp1;
+      maxI = id;
+    }
+  }
+  omega_global[ig] = maxW;
+  index_global[ig] = maxI;
+}
+
+__kernel void omega8 (
+    __global float *omega_global, __global unsigned int *index_global, __constant float *lr, 
+    __constant float *ts, __constant int *km, int inner
+) {
+  unsigned int ig = get_global_id(0);
+  unsigned int io = ig + inner;
+  unsigned int ic = ig * inner;
+  // unsigned int ie = ic + inner;
+
+  const float den_off = 0.00001f;
+  float maxW=0.0;
+  unsigned int maxI, i, id, lf = 4;
+
+  float l1;
+  float r1, r2, r3, r4;
+  float t1, t2, t3, t4;
+  float n1, n2, n3, n4;
+  float d1, d2, d3, d4;
+  float tmp1, tmp2, tmp3, tmp4;
+
+  int k1;
+  int m1, m2, m3, m4;
+  int ks1;
+  int ms1, ms2, ms3, ms4;
+
+  unsigned int ii = 0;
+
+  l1 = lr[io];
+  k1 = km[io];
+
+  ks1 = (k1 * (k1-1)) / 2;
+
+  for(i = 0; i+lf-1 < inner; i+=lf){
+    id = ic + i;
+    r1 = lr[ii];
+    m1 = km[ii++];
+    r2 = lr[ii];
+    m2 = km[ii++];
+    r3 = lr[ii];
+    m3 = km[ii++];
+    r4 = lr[ii];
+    m4 = km[ii++];
+    
+    t1 = ts[id];
+    t2 = ts[id + 1];
+    t3 = ts[id + 2];
+    t4 = ts[id + 3];
+
+    ms1 = (m1 * (m1-1)) / 2;
+    ms2 = (m2 * (m2-1)) / 2;
+    ms3 = (m3 * (m3-1)) / 2;
+    ms4 = (m4 * (m4-1)) / 2;
+
+    n1 = (l1 + r1) / (ks1 + ms1);
+    n2 = (l1 + r2) / (ks1 + ms2);
+    n3 = (l1 + r3) / (ks1 + ms3);
+    n4 = (l1 + r4) / (ks1 + ms4);
+
+    d1 = (t1 - l1 - r1) / (k1 * m1) + den_off;
+    d2 = (t2 - l1 - r2) / (k1 * m2) + den_off;
+    d3 = (t3 - l1 - r3) / (k1 * m3) + den_off;
+    d4 = (t4 - l1 - r4) / (k1 * m4) + den_off;
+
+    tmp1 = n1 / d1;
+    tmp2 = n2 / d2;
+    tmp3 = n3 / d3;
+    tmp4 = n4 / d4;
+
+    if(tmp1 > maxW){
+      maxW = tmp1;
+      maxI = id;
+    }
+    if(tmp2 > maxW){
+      maxW = tmp2;
+      maxI = id + 1;
+    }
+    if(tmp3 > maxW){
+      maxW = tmp3;
+      maxI = id + 2;
+    }
+    if(tmp4 > maxW){
+      maxW = tmp4;
+      maxI = id + 3;
+    }
+  }
+  for(/*emp*/;i<inner;i++){
+    id = ic + i;
+    r1 = lr[ii];
+    m1 = km[ii++];
+    t1 = ts[id];
+
+    ms1 = (m1 * (m1-1)) / 2;
+
+    n1 = (l1 + r1) / (ks1 + ms1);
+
+    d1 = (t1 - l1 - r1) / (k1 * m1) + den_off;
+
+    tmp1 = n1 / d1;
+    
+    if(tmp1 > maxW){
+      maxW = tmp1;
       maxI = id;
     }
   }

@@ -427,7 +427,9 @@ unsigned int cs_c;
 // #define OMEGA_NAME "omega3"
 // #define OMEGA_NAME "omega4"
 // #define OMEGA_NAME "omega5"
-#define OMEGA_NAME "omega6"
+// #define OMEGA_NAME "omega6"
+// #define OMEGA_NAME "omega7"
+#define OMEGA_NAME "omega8"
 
 cl_mem omega_buffer;
 cl_mem LS_buffer;
@@ -436,6 +438,8 @@ cl_mem TS_buffer;
 cl_mem k_buffer;
 cl_mem m_buffer;
 cl_mem LRkm_buffer;
+cl_mem LR_buffer;
+cl_mem km_buffer;
 cl_mem omega_im;
 cl_mem index_im;
 cl_mem index_buffer;
@@ -513,4 +517,10 @@ void computeOmega_gpu5(float * maxW, unsigned int * maxI, float * LSs, float * R
 
 void computeOmegaValues_gpu6 (omega_struct * omega, int omegaIndex, cor_t ** correlationMatrix, void * threadData);
 
-void computeOmega_gpu6(float * omegas, unsigned int * indexes, float * LRkm, float * TSs, int outer_cnt, int inner_cnt, unsigned int total);
+void computeOmegaValues_gpu7 (omega_struct * omega, int omegaIndex, cor_t ** correlationMatrix, void * threadData);
+
+void computeOmega_gpu7(float * omegas, unsigned int * indexes, float * LR, int * km, float * TSs, int out_in_cnt, int inner_cnt, unsigned int total);
+
+void computeOmegaValues_gpu8 (omega_struct * omega, int omegaIndex, cor_t ** correlationMatrix, void * threadData);
+
+void computeOmega_gpu8(float * omegas, unsigned int * indexes, float * LR, int * km, float * TSs, int out_in_cnt, int inner_cnt, unsigned int total, unsigned long int global);

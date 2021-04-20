@@ -1678,30 +1678,17 @@ int main(int argc, char** argv)
 			// int max_outer = 0;
 			// int max_inner = 0;
 
-			// unsigned int cnt = 0;
-			// unsigned int * indexes = NULL;
-			// indexes = malloc(sizeof(*indexes) * grid);
-
-			// static float * omegas = NULL, * LSs = NULL, * RSs = NULL, * TSs = NULL;
-			// static int * ks = NULL, * ms = NULL;
-			
-			// omegas = malloc(sizeof(*omegas) * LOCAL_1 * GPU_BLOCK_MC * GPU_BLOCK_KC);
-			// LSs = malloc(sizeof(*LSs) * LOCAL_1 * GPU_BLOCK_MC * GPU_BLOCK_KC);
-			// RSs = malloc(sizeof(*RSs) * LOCAL_1 * GPU_BLOCK_MC * GPU_BLOCK_KC);
-			// TSs = malloc(sizeof(*TSs) * LOCAL_1 * GPU_BLOCK_MC * GPU_BLOCK_KC);
-			// ks = malloc(sizeof(*ks) * LOCAL_1 * GPU_BLOCK_MC * GPU_BLOCK_KC);
-			// ms = malloc(sizeof(*ms) * LOCAL_1 * GPU_BLOCK_MC * GPU_BLOCK_KC);
-
-			int j, err=0, iter=100;
-			// float * test = NULL;
-			// test = malloc(sizeof(float));
+			int j, iter=100;
 		    
 		    for(i=0;i<grid;i++){
 				cvw_i=findNextValidOmega(omega, lvw_i, grid);
 
 				if(validGridP(cvw_i,grid))
-				{		
-					// printf("cvw: %d\n",cvw_i);
+				{
+					// max_outer = (omega[cvw_i].leftminIndex - omega[cvw_i].leftIndex) - (omega[cvw_i].leftIndex - omega[cvw_i].leftIndex) + 1;
+					// max_inner = (omega[cvw_i].rightIndex - omega[cvw_i].leftIndex) - (omega[cvw_i].rightminIndex - omega[cvw_i].leftIndex) + 1;
+					// printf("Total1: %lu\n",max_outer*max_inner);
+
 					overlapCorrelationMatrixAdditions (alignment, omega, lvw_i, cvw_i, 
 									&firstRowToCopy, &firstRowToCompute, &firstRowToAdd);
 					
@@ -1711,15 +1698,13 @@ int main(int argc, char** argv)
 
 					applyCorrelationMatrixAdditions (omega, cvw_i,firstRowToAdd,alignment->correlationMatrix);
 
-					// time2 = gettime();
-					// err=clEnqueueWriteBuffer(
-					// 		io_queue, LRkm_buffer, CL_FALSE, 0,
-					// 		sizeof(float), test,
-					// 		0, NULL, &events[7]
-					// 		);
-					// printCLErr(err,__LINE__,__FILE__);
-					// clWaitForEvents(1, &events[7]);
-					// printf("First write time: %fs\n",gettime()-time2);
+					// max_outer = (omega[cvw_i].leftminIndex - omega[cvw_i].leftIndex) - (omega[cvw_i].leftIndex - omega[cvw_i].leftIndex) + 1;
+					// max_inner = (omega[cvw_i].rightIndex - omega[cvw_i].leftIndex) - (omega[cvw_i].rightminIndex - omega[cvw_i].leftIndex) + 1;
+					// printf("Kernel Iter: %lu\n",(((max_outer*max_inner) + (work_items - 1)) / work_items));
+
+					// max_outer = (omega[cvw_i].leftminIndex - omega[cvw_i].leftIndex) - (omega[cvw_i].leftIndex - omega[cvw_i].leftIndex) + 1;
+					// max_inner = (omega[cvw_i].rightIndex - omega[cvw_i].leftIndex) - (omega[cvw_i].rightminIndex - omega[cvw_i].leftIndex) + 1;
+					// printf("Total2: %lu\n",max_outer*max_inner);
 
 					time2 = gettime();
 					for(j=0;j<iter;j++){
@@ -1727,7 +1712,9 @@ int main(int argc, char** argv)
 						// computeOmegas (alignment, omega, cvw_i, functionData,NULL);
 						// computeOmegaValues_gpu4(omega, cvw_i, alignment->correlationMatrix, NULL, omegas, LSs, RSs, TSs, ks, ms);
 					}
-					printf("Compute: %f\n",(gettime()-time2)/iter);
+					time3 = gettime();
+					// time4 += time3 - time2;
+					printf("Compute: %f\n",(time3-time2)/iter);
 
 					// int outer_cnt = omega[cvw_i].leftminIndex - omega[cvw_i].leftIndex - omega[cvw_i].leftIndex - omega[cvw_i].leftIndex + 1;
 					// int inner_cnt = omega[cvw_i].rightIndex - omega[cvw_i].leftIndex - omega[cvw_i].rightminIndex - omega[cvw_i].leftIndex + 1;
