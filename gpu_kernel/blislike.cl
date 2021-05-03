@@ -687,23 +687,44 @@ __kernel void omega2 (
   // Use int4 and float4??
 }
 
+// __kernel void omega3 (
+//     __global float *omega, __constant float *lrkm, __constant float *ts, int inner
+// ) {
+//   const unsigned int i = get_global_id(0);
+
+//   const int outer_i = (int)(i / inner) * 2 + (2 * inner); // or ((2 * i) / inner) + (2 * inner);
+// 	const int inner_i = (i % inner) * 2;
+
+//   int vk = (int)lrkm[outer_i+1];
+//   int ksel2 = vk * (vk-1) / 2;
+
+//   int vm = (int)lrkm[inner_i+1];
+//   int msel2 = (vm * (vm-1)) / 2;
+
+//   float numerator = (lrkm[outer_i] + lrkm[inner_i]) / (ksel2 + msel2);
+
+//   float denominator = (ts[i] - lrkm[outer_i] - lrkm[inner_i]) / (vk*vm) + 0.00001;
+
+//   omega[i] = numerator / denominator; //num_groups;
+// }
+
 __kernel void omega3 (
-    __global float *omega, __constant float *lrkm, __constant float *ts, int inner
+    __global float *omega, __constant float *lr, __constant float *ts, __constant int *km, int inner
 ) {
   const unsigned int i = get_global_id(0);
 
-  const int outer_i = (int)(i / inner) * 2 + (2 * inner); // or ((2 * i) / inner) + (2 * inner);
-	const int inner_i = (i % inner) * 2;
+  const int outer_i = i / inner + inner;
+	const int inner_i = i % inner;
 
-  int vk = (int)lrkm[outer_i+1];
+  int vk = km[outer_i];
   int ksel2 = vk * (vk-1) / 2;
 
-  int vm = (int)lrkm[inner_i+1];
+  int vm = km[inner_i];
   int msel2 = (vm * (vm-1)) / 2;
 
-  float numerator = (lrkm[outer_i] + lrkm[inner_i]) / (ksel2 + msel2);
+  float numerator = (lr[outer_i] + lr[inner_i]) / (ksel2 + msel2);
 
-  float denominator = (ts[i] - lrkm[outer_i] - lrkm[inner_i]) / (vk*vm) + 0.00001;
+  float denominator = (ts[i] - lr[outer_i] - lr[inner_i]) / (vk*vm) + 0.00001;
 
   omega[i] = numerator / denominator; //num_groups;
 }
@@ -841,7 +862,7 @@ __kernel void omega6 (
   unsigned int maxI, i, id, io, ii;
   int vk, ksel, vm, msel;
   
-  for(i = 0; i < iter; i++){    // Read "4 bytes/cycle" more reads higher speeds?
+  for(i = 0; i < iter; i++){
     id = ic + i;
     io = id / inner + inner;
     ii = id % inner;
@@ -1053,23 +1074,65 @@ __kernel void omega8 (
   unsigned int ig = get_global_id(0);
   unsigned int io = ig + inner;
   unsigned int ic = ig * inner;
+
+  const float den_off = 0.00001f;
+  unsigned int maxI, i, id;
+
+  float l, r, t, n, d, tmpW, maxW = 0.0f;
+  int k, m, ks, ms;
+
+  l = lr[io];
+  k = km[io];
+  ks = (k * (k-1)) / 2;
+
+  for(i = 0; i < inner; i++){
+    id = ic + i;
+    r = lr[i];
+    m = km[i];
+    
+    t = ts[id];
+    // t = ts[ic];
+
+    ms = (m * (m-1)) / 2;
+    n = (l + r) / (ks + ms);
+    d = (t - l - r) / (k * m) + den_off;
+    tmpW = n / d;
+
+    if(tmpW > maxW){
+      maxW = tmpW;
+      maxI = id;
+      // maxI = ic;
+    }
+    // ic++;
+  }
+  omega_global[ig] = maxW;
+  index_global[ig] = maxI;
+}
+
+__kernel void omega9 (
+    __global float *omega_global, __global unsigned int *index_global, __constant float *lr, 
+    __constant float *ts, __constant int *km, int inner
+) {
+  unsigned int ig = get_global_id(0);
+  unsigned int io = ig + inner;
+  unsigned int ic = ig * inner;
   // unsigned int ie = ic + inner;
 
   const float den_off = 0.00001f;
   float maxW=0.0;
-  unsigned int maxI, i, id, lf = 8;
+  unsigned int maxI, i, id, lf = 4;
 
   float l1;
-  float r1, r2, r3, r4, r5, r6, r7, r8;
-  float t1, t2, t3, t4, t5, t6, t7, t8;
-  float n1, n2, n3, n4, n5, n6, n7, n8;
-  float d1, d2, d3, d4, d5, d6, d7, d8;
-  float tmp1, tmp2, tmp3, tmp4, tmp5, tmp6, tmp7, tmp8;
+  float r1, r2, r3, r4;
+  float t1, t2, t3, t4;
+  float n1, n2, n3, n4;
+  float d1, d2, d3, d4;
+  float tmp1, tmp2, tmp3, tmp4;
 
   int k1;
-  int m1, m2, m3, m4, m5, m6, m7, m8;
+  int m1, m2, m3, m4;
   int ks1;
-  int ms1, ms2, ms3, ms4, ms5, ms6, ms7, ms8;
+  int ms1, ms2, ms3, ms4;
 
   unsigned int ii = 0;
 
@@ -1088,59 +1151,31 @@ __kernel void omega8 (
     m3 = km[ii++];
     r4 = lr[ii];
     m4 = km[ii++];
-    r5 = lr[ii];
-    m5 = km[ii++];
-    r6 = lr[ii];
-    m6 = km[ii++];
-    r7 = lr[ii];
-    m7 = km[ii++];
-    r8 = lr[ii];
-    m8 = km[ii++];
     
     t1 = ts[id];
     t2 = ts[id + 1];
     t3 = ts[id + 2];
     t4 = ts[id + 3];
-    t5 = ts[id + 4];
-    t6 = ts[id + 5];
-    t7 = ts[id + 6];
-    t8 = ts[id + 7];
 
     ms1 = (m1 * (m1-1)) / 2;
     ms2 = (m2 * (m2-1)) / 2;
     ms3 = (m3 * (m3-1)) / 2;
     ms4 = (m4 * (m4-1)) / 2;
-    ms5 = (m5 * (m5-1)) / 2;
-    ms6 = (m6 * (m6-1)) / 2;
-    ms7 = (m7 * (m7-1)) / 2;
-    ms8 = (m8 * (m8-1)) / 2;
 
     n1 = (l1 + r1) / (ks1 + ms1);
     n2 = (l1 + r2) / (ks1 + ms2);
     n3 = (l1 + r3) / (ks1 + ms3);
     n4 = (l1 + r4) / (ks1 + ms4);
-    n5 = (l1 + r5) / (ks1 + ms5);
-    n6 = (l1 + r6) / (ks1 + ms6);
-    n7 = (l1 + r7) / (ks1 + ms7);
-    n8 = (l1 + r8) / (ks1 + ms8);
 
     d1 = (t1 - l1 - r1) / (k1 * m1) + den_off;
     d2 = (t2 - l1 - r2) / (k1 * m2) + den_off;
     d3 = (t3 - l1 - r3) / (k1 * m3) + den_off;
     d4 = (t4 - l1 - r4) / (k1 * m4) + den_off;
-    d5 = (t5 - l1 - r5) / (k1 * m5) + den_off;
-    d6 = (t6 - l1 - r6) / (k1 * m6) + den_off;
-    d7 = (t7 - l1 - r7) / (k1 * m7) + den_off;
-    d8 = (t8 - l1 - r8) / (k1 * m8) + den_off;
 
     tmp1 = n1 / d1;
     tmp2 = n2 / d2;
     tmp3 = n3 / d3;
     tmp4 = n4 / d4;
-    tmp5 = n5 / d5;
-    tmp6 = n6 / d6;
-    tmp7 = n7 / d7;
-    tmp8 = n8 / d8;
 
     if(tmp1 > maxW){
       maxW = tmp1;
@@ -1157,22 +1192,6 @@ __kernel void omega8 (
     if(tmp4 > maxW){
       maxW = tmp4;
       maxI = id + 3;
-    }
-    if(tmp5 > maxW){
-      maxW = tmp5;
-      maxI = id + 4;
-    }
-    if(tmp6 > maxW){
-      maxW = tmp6;
-      maxI = id + 5;
-    }
-    if(tmp7 > maxW){
-      maxW = tmp7;
-      maxI = id + 6;
-    }
-    if(tmp8 > maxW){
-      maxW = tmp8;
-      maxI = id + 7;
     }
   }
   for(/*emp*/;i<inner;i++){
@@ -1197,3 +1216,98 @@ __kernel void omega8 (
   omega_global[ig] = maxW;
   index_global[ig] = maxI;
 }
+
+__kernel void omega10 (
+    __global float *omega_global, __global unsigned int *index_global, __constant float *lr, 
+    __constant float *ts, __constant int *km, int inner
+) {
+  unsigned int ig = get_global_id(0);
+  unsigned int io = ig + inner;
+  unsigned int ic = ig * inner;
+
+  const float den_off = 0.00001f;
+  unsigned int maxI, i, id;
+
+  float l, r, t, n, d, tmpW, maxW = 0.0f;
+  int k, m, ks, ms;
+
+  l = lr[io];
+  k = km[io];
+  ks = (k * (k-1)) / 2;
+
+  for(i = 0; i < inner; i++){
+    id = ic + i;
+    r = lr[i];
+    m = km[i];
+    
+    t = ts[id];
+    // t = ts[ic];
+
+    ms = (m * (m-1)) / 2;
+    n = (l + r) / (ks + ms);
+    d = (t - l - r) / (k * m) + den_off;
+    tmpW = n / d;
+
+    if(tmpW > maxW){
+      maxW = tmpW;
+      maxI = id;
+      // maxI = ic;
+    }
+    // ic++;
+  }
+  omega_global[ig] = maxW;
+  index_global[ig] = maxI;
+}
+
+__kernel void omega11 (
+    __global float *omega_global, __global unsigned int *index_global, __constant float *lr, 
+    __local float *r_local, __constant float *ts, __constant int *km, __local int *m_local, int inner
+) {
+    unsigned int ig = get_global_id(0);
+    unsigned int io = ig + 1280;//inner;
+    // unsigned int ic = ig * inner;
+    // unsigned int ic = get_global_size(0);
+    // unsigned int gs = get_global_size(0);
+    // unsigned int il = get_group_id(0) * inner + get_global_size(0);
+
+    const float den_off = 0.00001f;
+    unsigned int maxI, i, id=0;
+
+    float l, r, t, n, d, tmpW, maxW = 0.0f;
+    int k, m, ks, ms;
+
+    l = lr[io];
+    k = km[io];
+    // l = lr[ig];
+    // k = km[ig];
+    ks = (k * (k-1)) / 2;
+
+    for(i = 0; i < inner; i++){
+      // id = ic + i;
+      // il = gs + i;
+      r = lr[i];
+      m = km[i];
+
+      // r = lr[il+i];
+      // m = km[il+i];
+      
+      // t = ts[id];
+      t = ts[ig];
+      ig+=inner;
+
+      ms = (m * (m-1)) / 2;
+      n = (l + r) / (ks + ms);
+      d = (t - l - r) / (k * m) + den_off;
+      tmpW = n / d;
+
+      // if(tmpW > maxW){
+      //   maxW = tmpW;
+      //   maxI = id;
+      //   // maxI = ic;
+      // }
+      // ic++;
+      maxW+=tmpW;
+    }
+    omega_global[ig] = maxW;
+    index_global[ig] = maxI;
+  }
