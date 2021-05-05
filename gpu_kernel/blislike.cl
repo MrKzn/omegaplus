@@ -726,7 +726,7 @@ __kernel void omega3 (
 
   float denominator = (ts[i] - lr[outer_i] - lr[inner_i]) / (vk*vm) + 0.00001;
 
-  omega[i] = numerator / denominator; //num_groups;
+  omega[i] = numerator / denominator;
 }
 
 __kernel void omega4 (
@@ -1263,51 +1263,74 @@ __kernel void omega11 (
     __global float *omega_global, __global unsigned int *index_global, __constant float *lr, 
     __local float *r_local, __constant float *ts, __constant int *km, __local int *m_local, int inner
 ) {
-    unsigned int ig = get_global_id(0);
-    unsigned int io = ig + 1280;//inner;
-    // unsigned int ic = ig * inner;
-    // unsigned int ic = get_global_size(0);
-    // unsigned int gs = get_global_size(0);
-    // unsigned int il = get_group_id(0) * inner + get_global_size(0);
+  unsigned int ig = get_global_id(0);
+  unsigned int gs = get_global_size(0);
+  unsigned int il = get_local_id(0);
+  unsigned int wg = get_group_id(0);
+  unsigned int ls = get_local_size(0);
+  unsigned int ic = ig * inner;
 
-    const float den_off = 0.00001f;
-    unsigned int maxI, i, id=0;
+  unsigned int i, id, im = ls * inner * wg, ip = 0;
+  float t, tmp = 0.0f;
 
-    float l, r, t, n, d, tmpW, maxW = 0.0f;
-    int k, m, ks, ms;
+  for(i = 0; i < inner; i++){
+  // for(i = ic; i < ic+inner; i++){
+  //   t = ts[i];
 
-    l = lr[io];
-    k = km[io];
-    // l = lr[ig];
-    // k = km[ig];
-    ks = (k * (k-1)) / 2;
+    // t = ts[im + il];
+    // im+=ls;
 
-    for(i = 0; i < inner; i++){
-      // id = ic + i;
-      // il = gs + i;
-      r = lr[i];
-      m = km[i];
+    t = ts[ip + ig];
+    ip+=gs;
 
-      // r = lr[il+i];
-      // m = km[il+i];
-      
-      // t = ts[id];
-      t = ts[ig];
-      ig+=inner;
+    tmp += t;
+  }
+  omega_global[ig] = tmp;
+}
+
+__kernel void omega12 (
+    __global float *omega_global, __global unsigned int *index_global, __constant float *lr, 
+    __local float *r_local, __constant float *ts, __constant int *km, __local int *m_local, int inner
+) {
+  unsigned int ig = get_global_id(0);
+  unsigned int gs = get_global_size(0);
+  unsigned int il = get_local_id(0);
+  unsigned int ws = get_local_size(0);
+  unsigned int io = ig + inner;
+
+  const float den_off = 0.00001f;
+  unsigned int maxI;
+  unsigned int o, p, q;
+
+  float l, r, t, n, d, tmpW, maxW = 0.0f;
+  int k, m, ks, ms;
+
+  l = lr[io];
+  k = km[io];
+  ks = (k * (k-1)) / 2;
+
+  q = inner / ws;
+
+  for(o = 0; o < q; o++){
+    r_local[il] = lr[ws * o + il];
+    m_local[il] = km[ws * o + il];
+    for(p = 0; p < ws; p++){
+      r = r_local[p];
+      m = m_local[p];
+      t = ts[(ws * o + p) * gs + ig];
 
       ms = (m * (m-1)) / 2;
       n = (l + r) / (ks + ms);
       d = (t - l - r) / (k * m) + den_off;
       tmpW = n / d;
 
-      // if(tmpW > maxW){
-      //   maxW = tmpW;
-      //   maxI = id;
-      //   // maxI = ic;
-      // }
-      // ic++;
-      maxW+=tmpW;
+      if(tmpW > maxW){
+        maxW = tmpW;
+        maxI = ws * n + p;
+      }
     }
-    omega_global[ig] = maxW;
-    index_global[ig] = maxI;
   }
+
+  omega_global[ig] = maxW;
+  index_global[ig] = maxI;
+}
