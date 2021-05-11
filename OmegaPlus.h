@@ -431,7 +431,8 @@ unsigned int cs_c;
 // #define OMEGA_NAME "omega7"
 // #define OMEGA_NAME "omega8"
 // #define OMEGA_NAME "omega9"
-#define OMEGA_NAME "omega11"
+// #define OMEGA_NAME "omega11"
+#define OMEGA_NAME "omega13"
 #define OMEGA_NAME2 ""
 // #define OMEGA_NAME2 "omega10"
 
@@ -533,3 +534,7 @@ void computeOmega_gpu8(float * omegas, unsigned int * indexes, float * LR, int *
 void computeOmegaValues_gpu11 (omega_struct * omega, int omegaIndex, cor_t ** correlationMatrix, void * threadData);
 
 void computeOmega_gpu11(float * omegas, unsigned int * indexes, float * LR, int * km, float * TSs, int in_out_cnt, int inner_cnt, unsigned int total, unsigned long int global);
+
+void computeOmegaValues_gpu13 (omega_struct * omega, int omegaIndex, cor_t ** correlationMatrix, void * threadData);
+
+void computeOmega_gpu13(float * omegas, unsigned int * indexes, float * LR, int * km, float * TSs, int in_out_cnt, int mult, int iter, int inner, unsigned int total);

@@ -1285,6 +1285,7 @@ __kernel void omega11 (
 
     tmp += t;
   }
+  // tmp += ts[ig];
   omega_global[ig] = tmp;
 }
 
@@ -1331,6 +1332,57 @@ __kernel void omega12 (
     }
   }
 
+  omega_global[ig] = maxW;
+  index_global[ig] = maxI;
+}
+
+__kernel void omega13 (
+    __global float *omega_global, __global unsigned int *index_global, __constant float *lr, 
+    __constant float *ts, __constant int *km, int mult, int iter, int inner
+) {
+  unsigned int ig = get_global_id(0);
+  unsigned int gs = get_global_size(0);
+  unsigned int outer = gs / mult;
+  unsigned int io = ig / mult;
+  unsigned int is = (ig % mult * iter) + outer;
+  unsigned int ic = io * inner + is - outer;
+
+  const float den_off = 0.00001f;
+  unsigned int maxI, i, ip = 0;
+
+  float l, r, t, n, d, tmpW, maxW = 0.0f;
+  int k, m, ks, ms;
+
+  l = lr[io];
+  k = km[io];
+  // l = lr[ig];
+  // k = km[ig];
+  ks = (k * (k-1)) / 2;
+
+  for(i = is; i < iter+is; i++){
+    r = lr[i];
+    m = km[i];
+    
+    t = ts[ip + ig];
+    ip += gs;
+
+    // t = ts[ic];
+    // ic++;
+
+    ms = (m * (m-1)) / 2;
+    n = (l + r) / (ks + ms);
+    d = (t - l - r) / (k * m) + den_off;
+    tmpW = n / d;
+
+    if(tmpW > maxW){
+      maxW = tmpW;
+      maxI = ic;
+    }
+    ic++;
+
+    // maxW += t + l + k + r + m;
+    // maxW += tmpW;
+  }
   omega_global[ig] = maxW;
   index_global[ig] = maxI;
 }
