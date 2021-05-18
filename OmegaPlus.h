@@ -431,8 +431,9 @@ unsigned int cs_c;
 // #define OMEGA_NAME "omega7"
 // #define OMEGA_NAME "omega8"
 // #define OMEGA_NAME "omega9"
-// #define OMEGA_NAME "omega11"
-#define OMEGA_NAME "omega13"
+// #define OMEGA_NAME "omegatest"
+// #define OMEGA_NAME "omega13"
+#define OMEGA_NAME "omega14"
 #define OMEGA_NAME2 ""
 // #define OMEGA_NAME2 "omega10"
 
@@ -495,6 +496,10 @@ void mlt_gpu(unsigned int m,
          inputDataType_x32 *A,
          inputDataType_x32* tableA);
 
+void test_gpu (omega_struct * omega, int omegaIndex, cor_t ** correlationMatrix, void * threadData);
+
+void test_gpu_kernel(float * omegas, unsigned long int * time, float * TSs, unsigned long int local, int iter, unsigned int total, unsigned long int global);
+
 void computeOmegas_gpu (alignment_struct * alignment, omega_struct * omega, int omegaIndex, void * threadData, cor_t ** correlationMatrix);
 
 void computeOmegaValues_gpu (omega_struct * omega, int omegaIndex, cor_t ** correlationMatrix, void * threadData);
@@ -531,10 +536,10 @@ void computeOmegaValues_gpu8 (omega_struct * omega, int omegaIndex, cor_t ** cor
 
 void computeOmega_gpu8(float * omegas, unsigned int * indexes, float * LR, int * km, float * TSs, int in_out_cnt, int inner_cnt, unsigned int total, unsigned long int global);
 
-void computeOmegaValues_gpu11 (omega_struct * omega, int omegaIndex, cor_t ** correlationMatrix, void * threadData);
-
-void computeOmega_gpu11(float * omegas, unsigned int * indexes, float * LR, int * km, float * TSs, int in_out_cnt, int inner_cnt, unsigned int total, unsigned long int global);
-
 void computeOmegaValues_gpu13 (omega_struct * omega, int omegaIndex, cor_t ** correlationMatrix, void * threadData);
 
 void computeOmega_gpu13(float * omegas, unsigned int * indexes, float * LR, int * km, float * TSs, int in_out_cnt, int mult, int iter, int inner, unsigned int total);
+
+void computeOmegaValues_gpu14 (omega_struct * omega, int omegaIndex, cor_t ** correlationMatrix, void * threadData);
+
+void computeOmega_gpu14(float * omegas, unsigned int * indexes, float * L, float * R, int * k, int * m, float * T, int outer, int mult, int iter, int inner, unsigned int total);

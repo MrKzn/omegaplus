@@ -687,27 +687,6 @@ __kernel void omega2 (
   // Use int4 and float4??
 }
 
-// __kernel void omega3 (
-//     __global float *omega, __constant float *lrkm, __constant float *ts, int inner
-// ) {
-//   const unsigned int i = get_global_id(0);
-
-//   const int outer_i = (int)(i / inner) * 2 + (2 * inner); // or ((2 * i) / inner) + (2 * inner);
-// 	const int inner_i = (i % inner) * 2;
-
-//   int vk = (int)lrkm[outer_i+1];
-//   int ksel2 = vk * (vk-1) / 2;
-
-//   int vm = (int)lrkm[inner_i+1];
-//   int msel2 = (vm * (vm-1)) / 2;
-
-//   float numerator = (lrkm[outer_i] + lrkm[inner_i]) / (ksel2 + msel2);
-
-//   float denominator = (ts[i] - lrkm[outer_i] - lrkm[inner_i]) / (vk*vm) + 0.00001;
-
-//   omega[i] = numerator / denominator; //num_groups;
-// }
-
 __kernel void omega3 (
     __global float *omega, __constant float *lr, __constant float *ts, __constant int *km, int inner
 ) {
@@ -1259,7 +1238,7 @@ __kernel void omega10 (
   index_global[ig] = maxI;
 }
 
-__kernel void omega11 (
+__kernel void omegatest (
     __global float *omega_global, __global unsigned int *index_global, __constant float *lr, 
     __local float *r_local, __constant float *ts, __constant int *km, __local int *m_local, int inner
 ) {
@@ -1362,9 +1341,14 @@ __kernel void omega13 (
   for(i = is; i < iter+is; i++){
     r = lr[i];
     m = km[i];
+    // r = lr[ip + ig + gs];
+    // m = km[ip + ig + gs];
     
     t = ts[ip + ig];
     ip += gs;
+
+    // r = lr[ip + ig];
+    // m = km[ip + ig];
 
     // t = ts[ic];
     // ic++;
@@ -1382,6 +1366,51 @@ __kernel void omega13 (
 
     // maxW += t + l + k + r + m;
     // maxW += tmpW;
+  }
+  omega_global[ig] = maxW;
+  index_global[ig] = maxI;
+}
+
+__kernel void omega14 (
+    __global float *omega_global, __global unsigned int *index_global, __constant float *ls, 
+    __constant float *rs, __constant float *ts, __constant int *kss, __constant int *mss, int mult,
+    int iter, int inner
+) {
+  unsigned int ig = get_global_id(0);
+  unsigned int gs = get_global_size(0);
+  unsigned int outer = gs / mult;
+  unsigned int io = ig / mult;
+  unsigned int is = (ig % mult * iter) + outer;
+  unsigned int ic = io * inner + is - outer;
+
+  const float den_off = 0.00001f;
+  unsigned int maxI, i, ip = 0;
+
+  float l, r, t, n, d, tmpW, maxW = 0.0f;
+  int k, m, ks, ms;
+
+  l = ls[io];
+  k = kss[io];
+  // l = ls[ig];
+  // k = kss[ig];
+  ks = (k * (k-1)) / 2;
+
+  for(i = is; i < iter+is; i++){
+    r = rs[ip + ig];
+    m = mss[ip + ig];
+    t = ts[ip + ig];
+    ip += gs;
+
+    ms = (m * (m-1)) / 2;
+    n = (l + r) / (ks + ms);
+    d = (t - l - r) / (k * m) + den_off;
+    tmpW = n / d;
+
+    if(tmpW > maxW){
+      maxW = tmpW;
+      maxI = ic;
+    }
+    ic++;
   }
   omega_global[ig] = maxW;
   index_global[ig] = maxI;
