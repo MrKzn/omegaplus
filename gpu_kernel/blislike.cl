@@ -1415,3 +1415,49 @@ __kernel void omega14 (
   omega_global[ig] = maxW;
   index_global[ig] = maxI;
 }
+
+__kernel void omega15 (
+    __global float *omega_global, __global unsigned int *index_global, __constant float *ls, 
+    __constant float *rs, __constant float *ts, __constant int *kss, __constant int *mss, int gr_load,
+    int it_load
+) {
+  unsigned int wg = get_group_id(0);
+  unsigned int il = get_local_id(0);
+  unsigned int gs = get_local_size(0);
+  unsigned int ig = get_global_id(0);
+  unsigned int ws = get_global_size(0);
+  unsigned int gr = ws / gs;
+  unsigned int io = wg;
+  unsigned int ii = wg * gs * (gr_load * it_load) + il;
+
+  const float den_off = 0.00001f;
+  unsigned int maxI, i, j;
+
+  float l, r, t, n, d, tmpW, maxW = 0.0f;
+  int k, m, ks, ms;
+
+  for(i = 0; i < gr_load; i++){
+    l = ls[io];
+    k = kss[io];
+    io += gr;
+    ks = (k * (k-1)) / 2;
+    for(j = 0; j < it_load; j++){
+      r = rs[ii];
+      m = mss[ii];
+      t = ts[ii];
+      ii += gs;
+
+      ms = (m * (m-1)) / 2;
+      n = (l + r) / (ks + ms);
+      d = (t - l - r) / (k * m) + den_off;
+      tmpW = n / d;
+
+      if(tmpW > maxW){
+        maxW = tmpW;
+        maxI = ii - gs; //probably
+      }
+    }
+  }
+  omega_global[ig] = maxW;
+  index_global[ig] = maxI;
+}
