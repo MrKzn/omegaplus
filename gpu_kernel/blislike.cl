@@ -1383,14 +1383,27 @@ __kernel void omega14 (
   unsigned int is = (ig % mult * iter) + outer;
   unsigned int ic = io * inner + is - outer;
 
+  unsigned int st = get_group_id(0) * 128;
+  unsigned int il = get_local_id(0);
+  unsigned int ioo = il / mult;
+
   const float den_off = 0.00001f;
   unsigned int maxI, i, ip = 0;
 
   float l, r, t, n, d, tmpW, maxW = 0.0f;
   int k, m, ks, ms;
 
-  l = ls[io];
-  k = kss[io];
+  __local float lls[128];
+  __local int lkss[128];
+
+  lls[il] = ls[st + il];
+  lkss[il] = kss[st + il];
+
+  l = lls[ioo];
+  k = lkss[ioo];
+
+  // l = ls[io];
+  // k = kss[io];
   // l = ls[ig];
   // k = kss[ig];
   ks = (k * (k-1)) / 2;
@@ -1425,10 +1438,9 @@ __kernel void omega15 (
   unsigned int il = get_local_id(0);
   unsigned int gs = get_local_size(0);
   unsigned int ig = get_global_id(0);
-  unsigned int ws = get_global_size(0);
-  unsigned int gr = ws / gs;
-  unsigned int io = wg;
-  unsigned int ii = wg * gs * (gr_load * it_load) + il;
+  unsigned int gr = get_num_groups(0);
+  // unsigned int ii = wg * gs * (gr_load * it_load) + il;
+  unsigned int ii = ig; //wg * gs + il;
 
   const float den_off = 0.00001f;
   unsigned int maxI, i, j;
@@ -1437,15 +1449,16 @@ __kernel void omega15 (
   int k, m, ks, ms;
 
   for(i = 0; i < gr_load; i++){
-    l = ls[io];
-    k = kss[io];
-    io += gr;
+    l = ls[wg];         // wg = wgID + (i * #wg);
+    k = kss[wg];
+    wg += gr;
     ks = (k * (k-1)) / 2;
     for(j = 0; j < it_load; j++){
-      r = rs[ii];
+      r = rs[ii];       // ii = (wgID * wgSIZE) + (j + (i * it_load) * #wg * wgSIZE) + localID;
       m = mss[ii];
       t = ts[ii];
-      ii += gs;
+      // ii += gs;
+      ii += gs * gr;
 
       ms = (m * (m-1)) / 2;
       n = (l + r) / (ks + ms);
@@ -1454,7 +1467,63 @@ __kernel void omega15 (
 
       if(tmpW > maxW){
         maxW = tmpW;
-        maxI = ii - gs; //probably
+        maxI = ii - gs;
+      }
+    }
+  }
+  omega_global[ig] = maxW;
+  index_global[ig] = maxI;
+}
+
+__kernel void omega16 (
+    __global float *omega_global, __global unsigned int *index_global, __constant float *ls,
+    __constant float *rs, __constant float *ts, __constant int *kss, 
+    __constant int *mss, int gr_load, int it_load, __local float *lls, __local int *lkss
+) {
+  unsigned int wg = get_group_id(0);
+  unsigned int il = get_local_id(0);
+  unsigned int gs = get_local_size(0);
+  unsigned int ig = get_global_id(0);
+  unsigned int gr = get_num_groups(0);
+  // unsigned int ii = wg * gs * (gr_load * it_load) + il;
+  unsigned int ii = ig;  //wg * gs + il;
+  unsigned int reads = gr_load / gs + 1;
+  unsigned int st = wg * gs * reads;
+
+  const float den_off = 0.00001f;
+  unsigned int maxI, i, j;
+
+  float l, r, t, n, d, tmpW, maxW = 0.0f;
+  int k, m, ks, ms;
+
+  // for(i = 0; i < reads; i++){
+  //   lls[il] = ls[st + il];
+  //   lkss[il] = kss[st + il];
+  //   il += gs;
+  // }
+
+  lls[il] = ls[st + il];
+  lkss[il] = kss[st + il];
+
+  for(i = 0; i < gr_load; i++){
+    l = lls[i];
+    k = lkss[i];
+    ks = (k * (k-1)) / 2;
+    for(j = 0; j < it_load; j++){
+      r = rs[ii];       // ii = (wgID * wgSIZE) + (j + (i * it_load) * #wg * wgSIZE) + localID;
+      m = mss[ii];
+      t = ts[ii];
+      // ii += gs;
+      ii += gs * gr;
+
+      ms = (m * (m-1)) / 2;
+      n = (l + r) / (ks + ms);
+      d = (t - l - r) / (k * m) + den_off;
+      tmpW = n / d;
+
+      if(tmpW > maxW){
+        maxW = tmpW;
+        maxI = ii - gs;
       }
     }
   }
