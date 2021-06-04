@@ -2636,11 +2636,12 @@ void computeOmega_gpu15(float * omegas, unsigned int * indexes, float * L, float
 void computeOmegaValues_gpu15 (omega_struct * omega, int omegaIndex, cor_t ** correlationMatrix, void * threadData)
 {
 	// static double mtime0, mtime1, mtimetot = 0;
+	float tmpW, maxW=0.0;
 	static float * omegas = NULL, * L = NULL, * R = NULL, * T = NULL;
 
 	unsigned int * indexes = NULL, index = 0;
 	static int * k = NULL, * m = NULL;
-	int i, j, maxLeftIndex=0, maxRightIndex=0, inner_work, outer_work,
+	int i, j, l, o, maxLeftIndex=0, maxRightIndex=0, inner_work, outer_work,
 	
 	work_total, outer_cnt, inner_cnt, inner_i=0, o_i=0, i_i=0,
 	
@@ -2662,16 +2663,17 @@ void computeOmegaValues_gpu15 (omega_struct * omega, int omegaIndex, cor_t ** co
 	int item_load = (inner_cnt + (group_size - 1)) / group_size;
 
 	outer_work = group_load * work_groups;
-	inner_work = item_load * group_size;
+	inner_work = item_load * group_size; //*work_groups;?
+	// inner_work = item_load * work_items;
 	work_total = outer_work * inner_work;
 
 	// printf("Outer cnt: %d, Inner cnt: %d, Group load: %d, Item load: %d, Outer work: %d, Inner work: %d\n",outer_cnt, inner_cnt, group_load, item_load, outer_work, inner_work);
 
 	omegas = malloc(sizeof(*omegas)*work_items);
 	indexes = malloc(sizeof(*indexes)*work_items);
-	L = malloc(sizeof(*L)*outer_cnt);
+	L = malloc(sizeof(*L)*outer_work);
 	R = malloc(sizeof(*R)*work_total);
-	k = malloc(sizeof(*k)*outer_cnt);
+	k = malloc(sizeof(*k)*outer_work);
 	m = malloc(sizeof(*m)*work_total);
 	T = malloc(sizeof(*T)*work_total);
 
@@ -2691,69 +2693,73 @@ void computeOmegaValues_gpu15 (omega_struct * omega, int omegaIndex, cor_t ** co
 		}
 		for(j=rightMinIndex;j<=rightMaxIndex;j++) // Right Side
 		{
+			i_i = (o_i / work_groups) * (item_load * work_items) + (o_i % work_groups) * group_size + 
+				(inner_i / group_size) * work_items + inner_i % group_size;
+			
 			R[i_i] = correlationMatrix[j][omegaSNIPIndex+1];	// RSs
 
 			m[i_i] = j - omegaSNIPIndex;						// ms
 			
 			T[i_i] = correlationMatrix[j][i];
 
-			i_i++;
+			inner_i++;
 		}
-		for(/*emp*/;i_i<inner_work;i_i++){
-			R[i_i] = 1;
+		for(;inner_i<inner_work;inner_i++)	//+1
+		{ 
+			i_i++;
+			R[i_i] = 0.0f;
 			m[i_i] = 0;
+			T[i_i] = -1.0f;
 		}
 		o_i++;
-		i_i = o_i * inner_work;
+		inner_i = 0;
+	}
+	for(;o_i<outer_work;o_i++)
+	{
+		L[o_i] = 0.0f;
+		k[o_i] = 0;
+		// printf("Rest: i_i: %d, o_i: %d, inner_i: %d", i_i, o_i, inner_i);
+		// getchar();
+		// for(inner_i=0;inner_i<inner_work;inner_i++)
+		// {
+		// 	i_i = (o_i / work_groups) * (item_load * work_items) + (o_i % work_groups) * group_size + 
+		// 		(inner_i / group_size) * work_items + inner_i % group_size;
+		// 	R[i_i] = 0.0f;
+		// 	// m[i_i] = 0;
+		// }
 	}
 
-	// for(group_size = 128; group_size <= 256; group_size += 128){
-	// 	for(work_groups = 6; work_groups < 160; work_groups += 1){
-	// 		work_items = group_size * work_groups;
-	// 		group_load = (outer_cnt + (work_groups - 1)) / work_groups;
-	// 		item_load = (inner_cnt + (group_size - 1)) / group_size;
-	// 		outer_work = group_load * work_groups;
-	// 		inner_work = item_load * group_size;
-	// 		work_total = outer_work * inner_work;
-	// 		omegas = malloc(sizeof(*omegas)*work_items);
-	// 		indexes = malloc(sizeof(*indexes)*work_items);
-	// 		L = malloc(sizeof(*L)*outer_cnt);
-	// 		R = malloc(sizeof(*R)*work_total);
-	// 		k = malloc(sizeof(*k)*outer_cnt);
-	// 		m = malloc(sizeof(*m)*work_total);
-	// 		T = malloc(sizeof(*T)*work_total);	
-			for(i=0;i<80;i++){
-				// mtime0 = gettime();
-				computeOmega_gpu15(omegas, indexes, L, R, k, m, T, outer_cnt, group_load, item_load, work_total);
-				// computeOmega_gpu16(omegas, indexes, L, R, k, m, T, outer_cnt, group_load, item_load, work_total);
-				// mtime1 = gettime();
-				// mtimetot += mtime1 - mtime0;
-				// printf("%f\n",mtimetot);
-	// 			index+=indexes[0];
-			}
-	// 		printf("%lu, %ld, %d, %d, %u\n",work_items, group_size, work_groups, work_total, index/20);
-	// 		index = 0;
-	// 	}
-	// }
+	// mtime0 = gettime();
+	computeOmega_gpu15(omegas, indexes, L, R, k, m, T, outer_work, group_load, item_load, work_total);
+	// computeOmega_gpu16(omegas, indexes, L, R, k, m, T, outer_cnt, group_load, item_load, work_total);
+	// mtime1 = gettime();
+	// mtimetot += mtime1 - mtime0;
+	// printf("%f\n",mtimetot);
 
-	// for(i=0;i<outer_cnt*mult;i++)
-	// {
-	// 	tmpW = omegas[i];
-	// 	if(tmpW>maxW)
-	// 	{
-	// 		maxW = tmpW;
-	// 		index = indexes[i];
-	// 	}
-	// }
+	for(i = 0; i < work_items; i++)
+	{
+		tmpW = omegas[i];
+		if(tmpW>maxW)
+		{
+			maxW = tmpW;
+			index = indexes[i];
+		}
+	}
 
-	// maxLeftIndex = (leftMinIndex - (int)(index/inner_cnt)) + omega[omegaIndex].leftIndex;
-	// maxRightIndex = (rightMinIndex + (int)(index%inner_cnt)) + omega[omegaIndex].leftIndex;
+	maxLeftIndex = leftMinIndex - 
+		(index / (item_load * work_items)) * work_groups + ((index % work_items)/group_size) 
+			+ omega[omegaIndex].leftIndex;
 
-	// omega[omegaIndex].maxValue = maxW;
-	// omega[omegaIndex].maxLeftIndex  = maxLeftIndex;
-	// omega[omegaIndex].maxRightIndex = maxRightIndex;
+	maxRightIndex = rightMinIndex + 
+		(((index % (item_load * work_items)) / work_items) * group_size + index % group_size)
+			+ omega[omegaIndex].leftIndex;
+
+	omega[omegaIndex].maxValue = maxW;
+	omega[omegaIndex].maxLeftIndex  = maxLeftIndex;
+	omega[omegaIndex].maxRightIndex = maxRightIndex;
 
 	free(omegas);
+	free(indexes);
 	free(L);
 	free(R);
 	free(k);
@@ -2857,6 +2863,81 @@ void computeOmega_gpu16(float * omegas, unsigned int * indexes, float * L, float
 
 	// indexes[0] = p_total;
 	// p_total = 0;
+}
+
+void test_gpu2 (omega_struct * omega, int omegaIndex, cor_t ** correlationMatrix, void * threadData)
+{
+	// static double mtime0, mtime1, mtimetot = 0;
+	static float * omegas = NULL, * L = NULL, * R = NULL, * T = NULL;
+	static int * k = NULL, * m = NULL;
+	unsigned int * indexes = NULL;
+	int i, j, l, o, maxLeftIndex=0, maxRightIndex=0, inner_work, outer_work,
+	
+	work_total, outer_cnt, inner_cnt, inner_i=0, o_i=0, i_i=0,
+	
+	omegaSNIPIndex = omega[omegaIndex].omegaPos - omega[omegaIndex].leftIndex,
+
+	leftMinIndex = omega[omegaIndex].leftminIndex - omega[omegaIndex].leftIndex,
+
+	leftMaxIndex = omega[omegaIndex].leftIndex - omega[omegaIndex].leftIndex,
+	
+	rightMinIndex = omega[omegaIndex].rightminIndex - omega[omegaIndex].leftIndex,
+
+	rightMaxIndex = omega[omegaIndex].rightIndex - omega[omegaIndex].leftIndex;
+
+	outer_cnt = leftMinIndex - leftMaxIndex + 1;
+	inner_cnt = rightMaxIndex - rightMinIndex + 1;
+
+	int work_groups = work_items / group_size;
+	int group_load = (outer_cnt + (work_groups - 1)) / work_groups;
+	int item_load = (inner_cnt + (group_size - 1)) / group_size;
+
+	outer_work = group_load * work_groups;
+	inner_work = item_load * group_size; //*work_groups;?
+	// inner_work = item_load * work_items;
+	work_total = outer_work * inner_work;
+
+	// printf("Outer cnt: %d, Inner cnt: %d, Group load: %d, Item load: %d, Outer work: %d, Inner work: %d\n",outer_cnt, inner_cnt, group_load, item_load, outer_work, inner_work);
+
+	omegas = malloc(sizeof(*omegas)*work_items);
+	indexes = malloc(sizeof(*indexes)*work_items);
+	L = malloc(sizeof(*L)*outer_work);
+	R = malloc(sizeof(*R)*work_total);
+	k = malloc(sizeof(*k)*outer_work);
+	m = malloc(sizeof(*m)*work_total);
+	T = malloc(sizeof(*T)*work_total);
+
+	if(omegas==NULL || L==NULL || R==NULL || k==NULL || m==NULL || T==NULL)
+		printf("MALLOC error\n");
+
+	for(i = 0; i < outer_work; i++)
+	{
+		L[i] = 1;
+		k[i] = 1;
+		for(j = 0; j < inner_work; j++)
+		{
+			R[j] = 1;
+
+			m[j] = 1;
+			
+			T[j] = 1;
+		}
+	}
+
+	// mtime0 = gettime();
+	computeOmega_gpu15(omegas, indexes, L, R, k, m, T, outer_work, group_load, item_load, work_total);
+	// computeOmega_gpu16(omegas, indexes, L, R, k, m, T, outer_cnt, group_load, item_load, work_total);
+	// mtime1 = gettime();
+	// mtimetot += mtime1 - mtime0;
+	// printf("%f\n",mtimetot);
+
+	free(omegas);
+	free(indexes);
+	free(L);
+	free(R);
+	free(k);
+	free(m);
+	free(T);
 }
 
 #ifdef _USE_PTHREADS

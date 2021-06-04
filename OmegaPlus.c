@@ -1672,7 +1672,6 @@ int main(int argc, char** argv)
 #else
 		    
 		    alignment->correlationMatrix = createCorrelationMatrix(alignment->correlationMatrix,matrixSizeMax);
-		    
 		    lvw_i=-1;
 
 			// int max_outer = 0;

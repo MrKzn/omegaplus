@@ -1383,31 +1383,35 @@ __kernel void omega14 (
   unsigned int is = (ig % mult * iter) + outer;
   unsigned int ic = io * inner + is - outer;
 
-  unsigned int st = get_group_id(0) * 128;
-  unsigned int il = get_local_id(0);
-  unsigned int ioo = il / mult;
-
   const float den_off = 0.00001f;
   unsigned int maxI, i, ip = 0;
+  // unsigned int maxI, i, lf = 4, ip = ig * lf;
+  unsigned int maxI1, maxI2, maxI3, maxI4;
 
+  // float tmpW, maxW = 0.0f;
   float l, r, t, n, d, tmpW, maxW = 0.0f;
   int k, m, ks, ms;
 
-  __local float lls[128];
-  __local int lkss[128];
+  // float l1;
+  // float r1, r2, r3, r4, r5, r6, r7, r8;
+  // float t1, t2, t3, t4, t5, t6, t7, t8;
+  // float n1, n2, n3, n4, n5, n6, n7, n8;
+  // float d1, d2, d3, d4, d5, d6, d7, d8;
+  // float tmp1, tmp2, tmp3, tmp4, tmp5, tmp6, tmp7, tmp8;
+  // float maxW1=0.0f, maxW2=0.0f, maxW3=0.0f, maxW4=0.0f;
 
-  lls[il] = ls[st + il];
-  lkss[il] = kss[st + il];
+  // int k1;
+  // int m1, m2, m3, m4, m5, m6, m7, m8;
+  // int ks1;
+  // int ms1, ms2, ms3, ms4, ms5, ms6, ms7, ms8;
 
-  l = lls[ioo];
-  k = lkss[ioo];
-
-  // l = ls[io];
-  // k = kss[io];
+  l = ls[io];
+  k = kss[io];
   // l = ls[ig];
   // k = kss[ig];
   ks = (k * (k-1)) / 2;
 
+  #pragma unroll 8
   for(i = is; i < iter+is; i++){
     r = rs[ip + ig];
     m = mss[ip + ig];
@@ -1425,8 +1429,136 @@ __kernel void omega14 (
     }
     ic++;
   }
+
+  // l1 = ls[io];
+  // k1 = kss[io];
+  // ks1 = (k1 * (k1-1)) / 2;
+
+  // for(i = 0; i+lf-1 < iter; i+=lf){
+  //   r1 = rs[ip + ig    ];
+  //   r2 = rs[ip + ig + 1];
+  //   r3 = rs[ip + ig + 2];
+  //   r4 = rs[ip + ig + 3];
+  //   // r5 = rs[ip + ig + 4];
+  //   // r6 = rs[ip + ig + 5];
+  //   // r7 = rs[ip + ig + 6];
+  //   // r8 = rs[ip + ig + 7];
+  //   m1 = mss[ip + ig    ];
+  //   m2 = mss[ip + ig + 1];
+  //   m3 = mss[ip + ig + 2];
+  //   m4 = mss[ip + ig + 3];
+  //   // m5 = mss[ip + ig + 4];
+  //   // m6 = mss[ip + ig + 5];
+  //   // m7 = mss[ip + ig + 6];
+  //   // m8 = mss[ip + ig + 7];
+  //   t1 = ts[ip + ig    ];
+  //   t2 = ts[ip + ig + 1];
+  //   t3 = ts[ip + ig + 2];
+  //   t4 = ts[ip + ig + 3];
+  //   // t5 = ts[ip + ig + 4];
+  //   // t6 = ts[ip + ig + 5];
+  //   // t7 = ts[ip + ig + 6];
+  //   // t8 = ts[ip + ig + 7];
+  //   ip += lf * gs;
+
+  //   ms1 = (m1 * (m1-1)) * 0.5;
+  //   ms2 = (m2 * (m2-1)) * 0.5;
+  //   ms3 = (m3 * (m3-1)) * 0.5;
+  //   ms4 = (m4 * (m4-1)) * 0.5;
+  //   // ms5 = (m5 * (m5-1)) / 2;
+  //   // ms6 = (m6 * (m6-1)) / 2;
+  //   // ms7 = (m7 * (m7-1)) / 2;
+  //   // ms8 = (m8 * (m8-1)) / 2;
+
+  //   n1 = (l1 + r1) / (ks1 + ms1);
+  //   n2 = (l1 + r2) / (ks1 + ms2);
+  //   n3 = (l1 + r3) / (ks1 + ms3);
+  //   n4 = (l1 + r4) / (ks1 + ms4);
+  //   // n5 = (l1 + r5) / (ks1 + ms5);
+  //   // n6 = (l1 + r6) / (ks1 + ms6);
+  //   // n7 = (l1 + r7) / (ks1 + ms7);
+  //   // n8 = (l1 + r8) / (ks1 + ms8);
+
+  //   d1 = (t1 - l1 - r1) / (k1 * m1) + den_off;
+  //   d2 = (t2 - l1 - r2) / (k1 * m2) + den_off;
+  //   d3 = (t3 - l1 - r3) / (k1 * m3) + den_off;
+  //   d4 = (t4 - l1 - r4) / (k1 * m4) + den_off;
+  //   // d5 = (t5 - l1 - r5) / (k1 * m5) + den_off;
+  //   // d6 = (t6 - l1 - r6) / (k1 * m6) + den_off;
+  //   // d7 = (t7 - l1 - r7) / (k1 * m7) + den_off;
+  //   // d8 = (t8 - l1 - r8) / (k1 * m8) + den_off;
+
+  //   tmp1 = n1 / d1;
+  //   tmp2 = n2 / d2;
+  //   tmp3 = n3 / d3;
+  //   tmp4 = n4 / d4;
+  //   // tmp5 = n5 / d5;
+  //   // tmp6 = n6 / d6;
+  //   // tmp7 = n7 / d7;
+  //   // tmp8 = n8 / d8;
+
+  //   if(tmp1 > maxW){
+  //     maxW = tmp1;
+  //     maxI = i;
+  //   }
+  //   if(tmp2 > maxW){
+  //     maxW = tmp2;
+  //     maxI = i + 1;
+  //   }
+  //   if(tmp3 > maxW){
+  //     maxW = tmp3;
+  //     maxI = i + 2;
+  //   }
+  //   if(tmp4 > maxW){
+  //     maxW = tmp4;
+  //     maxI = i + 3;
+  //   }
+  //   // if(tmp5 > maxW){
+  //   //   maxW = tmp5;
+  //   //   maxI = ic + 4;
+  //   // }
+  //   // if(tmp6 > maxW){
+  //   //   maxW = tmp6;
+  //   //   maxI = ic + 5;
+  //   // }
+  //   // if(tmp7 > maxW){
+  //   //   maxW = tmp7;
+  //   //   maxI = ic + 6;
+  //   // }
+  //   // if(tmp8 > maxW){
+  //   //   maxW = tmp8;
+  //   //   maxI = ic + 7;
+  //   // }
+  // }
+  // // maxW = maxW1;
+  // // if(maxW2 > maxW)
+  // //   maxW = maxW2;
+  // // if(maxW3 > maxW)
+  // //   maxW = maxW3;
+  // // if(maxW4 > maxW)
+  // //   maxW = maxW4;
+
+  // for(/*emp*/;i<iter;i++){
+  //   r1 = rs[ip + ig];
+  //   m1 = mss[ip + ig];
+  //   t1 = ts[ip + ig];
+  //   ip += gs;
+
+  //   ms1 = (m1 * (m1-1)) / 2;
+
+  //   n1 = (l1 + r1) / (ks1 + ms1);
+
+  //   d1 = (t1 - l1 - r1) / (k1 * m1) + den_off;
+
+  //   tmp1 = n1 / d1;
+    
+  //   if(tmp1 > maxW){
+  //     maxW = tmp1;
+  //     maxI = i;
+  //   }
+  // }
   omega_global[ig] = maxW;
-  index_global[ig] = maxI;
+  index_global[ig] = maxI + ic;
 }
 
 __kernel void omega15 (
@@ -1444,21 +1576,35 @@ __kernel void omega15 (
 
   const float den_off = 0.00001f;
   unsigned int maxI, i, j;
+  // unsigned int maxI, i, j, lf = 8;
 
+  // float tmpW, maxW = 0.0f;
   float l, r, t, n, d, tmpW, maxW = 0.0f;
   int k, m, ks, ms;
 
+  // float l1;
+  // float r1, r2, r3, r4, r5, r6, r7, r8;
+  // float t1, t2, t3, t4, t5, t6, t7, t8;
+  // float n1, n2, n3, n4, n5, n6, n7, n8;
+  // float d1, d2, d3, d4, d5, d6, d7, d8;
+  // float tmp1, tmp2, tmp3, tmp4, tmp5, tmp6, tmp7, tmp8;
+
+  // int k1;
+  // int m1, m2, m3, m4, m5, m6, m7, m8;
+  // int ks1;
+  // int ms1, ms2, ms3, ms4, ms5, ms6, ms7, ms8;
+
+  // #pragma unroll
   for(i = 0; i < gr_load; i++){
     l = ls[wg];         // wg = wgID + (i * #wg);
     k = kss[wg];
     wg += gr;
     ks = (k * (k-1)) / 2;
+    // #pragma unroll 8
     for(j = 0; j < it_load; j++){
       r = rs[ii];       // ii = (wgID * wgSIZE) + (j + (i * it_load) * #wg * wgSIZE) + localID;
       m = mss[ii];
       t = ts[ii];
-      // ii += gs;
-      ii += gs * gr;
 
       ms = (m * (m-1)) / 2;
       n = (l + r) / (ks + ms);
@@ -1467,9 +1613,129 @@ __kernel void omega15 (
 
       if(tmpW > maxW){
         maxW = tmpW;
-        maxI = ii - gs;
+        maxI = ii;
       }
+      // ii += gs;
+      ii += gs * gr;
     }
+  // for(i = 0; i < gr_load; i++){
+  //   l1 = ls[wg];         // wg = wgID + (i * #wg);
+  //   k1 = kss[wg];
+  //   wg += gr;
+  //   ks1 = (k1 * (k1-1)) / 2;
+  //   for(j = 0; j+lf-1 < it_load; j+=lf){
+  //     r1 = rs[ii    ];
+  //     r2 = rs[ii + 1];
+  //     r3 = rs[ii + 2];
+  //     r4 = rs[ii + 3];
+  //     r5 = rs[ii + 4];
+  //     r6 = rs[ii + 5];
+  //     r7 = rs[ii + 6];
+  //     r8 = rs[ii + 7];
+  //     m1 = mss[ii    ];
+  //     m2 = mss[ii + 1];
+  //     m3 = mss[ii + 2];
+  //     m4 = mss[ii + 3];
+  //     m5 = mss[ii + 4];
+  //     m6 = mss[ii + 5];
+  //     m7 = mss[ii + 6];
+  //     m8 = mss[ii + 7];
+  //     t1 = ts[ii    ];
+  //     t2 = ts[ii + 1];
+  //     t3 = ts[ii + 2];
+  //     t4 = ts[ii + 3];
+  //     t5 = ts[ii + 4];
+  //     t6 = ts[ii + 5];
+  //     t7 = ts[ii + 6];
+  //     t8 = ts[ii + 7];
+  //     ii += lf * gs * gr;
+
+  //     ms1 = (m1 * (m1-1)) / 2;
+  //     ms2 = (m2 * (m2-1)) / 2;
+  //     ms3 = (m3 * (m3-1)) / 2;
+  //     ms4 = (m4 * (m4-1)) / 2;
+  //     ms5 = (m5 * (m5-1)) / 2;
+  //     ms6 = (m6 * (m6-1)) / 2;
+  //     ms7 = (m7 * (m7-1)) / 2;
+  //     ms8 = (m8 * (m8-1)) / 2;
+
+  //     n1 = (l1 + r1) / (ks1 + ms1);
+  //     n2 = (l1 + r2) / (ks1 + ms2);
+  //     n3 = (l1 + r3) / (ks1 + ms3);
+  //     n4 = (l1 + r4) / (ks1 + ms4);
+  //     n5 = (l1 + r5) / (ks1 + ms5);
+  //     n6 = (l1 + r6) / (ks1 + ms6);
+  //     n7 = (l1 + r7) / (ks1 + ms7);
+  //     n8 = (l1 + r8) / (ks1 + ms8);
+
+  //     d1 = (t1 - l1 - r1) / (k1 * m1) + den_off;
+  //     d2 = (t2 - l1 - r2) / (k1 * m2) + den_off;
+  //     d3 = (t3 - l1 - r3) / (k1 * m3) + den_off;
+  //     d4 = (t4 - l1 - r4) / (k1 * m4) + den_off;
+  //     d5 = (t5 - l1 - r5) / (k1 * m5) + den_off;
+  //     d6 = (t6 - l1 - r6) / (k1 * m6) + den_off;
+  //     d7 = (t7 - l1 - r7) / (k1 * m7) + den_off;
+  //     d8 = (t8 - l1 - r8) / (k1 * m8) + den_off;
+
+  //     tmp1 = n1 / d1;
+  //     tmp2 = n2 / d2;
+  //     tmp3 = n3 / d3;
+  //     tmp4 = n4 / d4;
+  //     tmp5 = n5 / d5;
+  //     tmp6 = n6 / d6;
+  //     tmp7 = n7 / d7;
+  //     tmp8 = n8 / d8;
+
+  //     if(tmp1 > maxW){
+  //       maxW = tmp1;
+  //       maxI = ii - lf * gs * gr;
+  //     }
+  //     if(tmp2 > maxW){
+  //       maxW = tmp2;
+  //       maxI = ii - lf * gs * gr + 1;
+  //     }
+  //     if(tmp3 > maxW){
+  //       maxW = tmp3;
+  //       maxI = ii - lf * gs * gr + 2;
+  //     }
+  //     if(tmp4 > maxW){
+  //       maxW = tmp4;
+  //       maxI = ii - lf * gs * gr + 3;
+  //     }
+  //     if(tmp5 > maxW){
+  //       maxW = tmp5;
+  //       maxI = ii - lf * gs * gr + 4;
+  //     }
+  //     if(tmp6 > maxW){
+  //       maxW = tmp6;
+  //       maxI = ii - lf * gs * gr + 5;
+  //     }
+  //     if(tmp7 > maxW){
+  //       maxW = tmp7;
+  //       maxI = ii - lf * gs * gr + 6;
+  //     }
+  //     if(tmp8 > maxW){
+  //       maxW = tmp8;
+  //       maxI = ii - lf * gs * gr + 7;
+  //     }
+  //   }
+  //   for(/*emp*/;j<it_load;j++){
+  //     r1 = rs[ii];       // ii = (wgID * wgSIZE) + (j + (i * it_load) * #wg * wgSIZE) + localID;
+  //     m1 = mss[ii];
+  //     t1 = ts[ii];
+  //     // ii += gs;
+  //     ii += gs * gr;
+
+  //     ms1 = (m1 * (m1-1)) / 2;
+  //     n1 = (l1 + r1) / (ks1 + ms1);
+  //     d1 = (t1 - l1 - r1) / (k1 * m1) + den_off;
+  //     tmp1 = n1 / d1;
+
+  //     if(tmp1 > maxW){
+  //       maxW = tmp1;
+  //       maxI = ii - gs * gr;
+  //     }
+  //   }
   }
   omega_global[ig] = maxW;
   index_global[ig] = maxI;
@@ -1529,4 +1795,55 @@ __kernel void omega16 (
   }
   omega_global[ig] = maxW;
   index_global[ig] = maxI;
+
+
+__kernel void omega17 (
+    __global float *omega_global, __global unsigned int *index_global, __constant float *ls, 
+    __constant float *rs, __constant float *ts, __constant int *kss, __constant int *mss, int mult,
+    int iter, int inner, __local float *lrs, __local int *lmss
+) {
+  unsigned int ig = get_global_id(0);
+  unsigned int gs = get_global_size(0);
+  unsigned int il = get_local_id(0);
+  unsigned int ws = get_local_size(0);
+  unsigned int outer = gs / mult;
+  unsigned int io = ig / mult;
+  unsigned int is = (ig % mult * iter) + outer;
+  unsigned int ic = io * inner + is - outer;
+
+  const float den_off = 0.00001f;
+  unsigned int maxI, i, ii, ip = 0;
+
+  float l, r, t, n, d, tmpW, maxW = 0.0f;
+  int k, m, ks, ms;
+
+  l = ls[io];
+  k = kss[io];
+  // l = ls[ig];
+  // k = kss[ig];
+  ks = (k * (k-1)) / 2;
+
+  lrs[il] = rs[x + il];   // x = some starting point for this kernel or work group
+  lmss[il] = mss[x + il];
+
+  for(i = 0; i < iter; i++){
+    ii = (i + il) % ws;
+    r = lrs[ii];
+    m = lmss[ii];
+    t = ts[ip + ig];
+    ip += gs;
+
+    ms = (m * (m-1)) / 2;
+    n = (l + r) / (ks + ms);
+    d = (t - l - r) / (k * m) + den_off;
+    tmpW = n / d;
+
+    if(tmpW > maxW){
+      maxW = tmpW;
+      maxI = ic;
+    }
+    ic++;
+  }
+  omega_global[ig] = maxW;
+  index_global[ig] = maxI + ic;
 }
