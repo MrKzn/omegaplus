@@ -434,8 +434,10 @@ unsigned int cs_c;
 // #define OMEGA_NAME "omegatest"
 // #define OMEGA_NAME "omega13"
 // #define OMEGA_NAME "omega14"
-#define OMEGA_NAME "omega15"
+// #define OMEGA_NAME "omega15"
 // #define OMEGA_NAME "omega16"
+// #define OMEGA_NAME "omega17"
+#define OMEGA_NAME "omegatest2"
 #define OMEGA_NAME2 ""
 // #define OMEGA_NAME2 "omega10"
 
@@ -502,6 +504,10 @@ void test_gpu (omega_struct * omega, int omegaIndex, cor_t ** correlationMatrix,
 
 void test_gpu_kernel(float * omegas, unsigned long int * time, float * TSs, unsigned long int local, int iter, unsigned int total, unsigned long int global);
 
+void test_gpu2 (omega_struct * omega, int omegaIndex, cor_t ** correlationMatrix, void * threadData);
+
+void test_gpu_kernel2(float * omegas, unsigned int * indexes, float * L, float * R, int * k, int * m, float * T, int outer, int inner, unsigned int LRkmSize, unsigned int total);
+
 void computeOmegas_gpu (alignment_struct * alignment, omega_struct * omega, int omegaIndex, void * threadData, cor_t ** correlationMatrix);
 
 void computeOmegaValues_gpu (omega_struct * omega, int omegaIndex, cor_t ** correlationMatrix, void * threadData);
@@ -551,3 +557,7 @@ void computeOmegaValues_gpu15 (omega_struct * omega, int omegaIndex, cor_t ** co
 void computeOmega_gpu15(float * omegas, unsigned int * indexes, float * L, float * R, int * k, int * m, float * T, int outer, int gr_load, int it_load, unsigned int total);
 
 void computeOmega_gpu16(float * omegas, unsigned int * indexes, float * L, float * R, int * k, int * m, float * T, int outer, int gr_load, int it_load, unsigned int total);
+
+void computeOmegaValues_gpu17 (omega_struct * omega, int omegaIndex, cor_t ** correlationMatrix, void * threadData);
+
+void computeOmega_gpu17(float * omegas, unsigned int * indexes, float * LR, int * km, float * T, int in_out_cnt, int outer, int inner_gr, unsigned int total);

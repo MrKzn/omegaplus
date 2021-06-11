@@ -1294,6 +1294,8 @@ __kernel void omega12 (
   for(o = 0; o < q; o++){
     r_local[il] = lr[ws * o + il];
     m_local[il] = km[ws * o + il];
+    // Ensure writes have completed:
+    // barrier(CLK_LOCAL_MEM_FENCE);   // Is stated in optimization guide since work group size is > 64
     for(p = 0; p < ws; p++){
       r = r_local[p];
       m = m_local[p];
@@ -1324,7 +1326,7 @@ __kernel void omega13 (
   unsigned int outer = gs / mult;
   unsigned int io = ig / mult;
   unsigned int is = (ig % mult * iter) + outer;
-  unsigned int ic = io * inner + is - outer;
+  unsigned int ic = io * inner - outer;
 
   const float den_off = 0.00001f;
   unsigned int maxI, i, ip = 0;
@@ -1337,21 +1339,16 @@ __kernel void omega13 (
   // l = lr[ig];
   // k = km[ig];
   ks = (k * (k-1)) / 2;
-
+  #pragma unroll 8
   for(i = is; i < iter+is; i++){
     r = lr[i];
     m = km[i];
-    // r = lr[ip + ig + gs];
-    // m = km[ip + ig + gs];
+
+    t = ts[ic + i];
+    // iss++;
     
-    t = ts[ip + ig];
-    ip += gs;
-
-    // r = lr[ip + ig];
-    // m = km[ip + ig];
-
-    // t = ts[ic];
-    // ic++;
+    // t = ts[ip + ig];
+    // ip += gs;
 
     ms = (m * (m-1)) / 2;
     n = (l + r) / (ks + ms);
@@ -1360,15 +1357,11 @@ __kernel void omega13 (
 
     if(tmpW > maxW){
       maxW = tmpW;
-      maxI = ic;
+      maxI = i;
     }
-    ic++;
-
-    // maxW += t + l + k + r + m;
-    // maxW += tmpW;
   }
   omega_global[ig] = maxW;
-  index_global[ig] = maxI;
+  index_global[ig] = maxI + ic;
 }
 
 __kernel void omega14 (
@@ -1380,13 +1373,13 @@ __kernel void omega14 (
   unsigned int gs = get_global_size(0);
   unsigned int outer = gs / mult;
   unsigned int io = ig / mult;
-  unsigned int is = (ig % mult * iter) + outer;
-  unsigned int ic = io * inner + is - outer;
+  unsigned int is = (ig % mult * iter);
+  unsigned int ic = io * inner;
 
   const float den_off = 0.00001f;
   unsigned int maxI, i, ip = 0;
   // unsigned int maxI, i, lf = 4, ip = ig * lf;
-  unsigned int maxI1, maxI2, maxI3, maxI4;
+  // unsigned int maxI1, maxI2, maxI3, maxI4;
 
   // float tmpW, maxW = 0.0f;
   float l, r, t, n, d, tmpW, maxW = 0.0f;
@@ -1411,10 +1404,13 @@ __kernel void omega14 (
   // k = kss[ig];
   ks = (k * (k-1)) / 2;
 
-  #pragma unroll 8
-  for(i = is; i < iter+is; i++){
+  #pragma unroll 4
+  for(i = is; i < iter + is; i++){
+  // for(i = 0; i < iter; i++){
     r = rs[ip + ig];
     m = mss[ip + ig];
+    // r = rs[i];
+    // m = mss[i];
     t = ts[ip + ig];
     ip += gs;
 
@@ -1425,9 +1421,8 @@ __kernel void omega14 (
 
     if(tmpW > maxW){
       maxW = tmpW;
-      maxI = ic;
+      maxI = i;
     }
-    ic++;
   }
 
   // l1 = ls[io];
@@ -1771,6 +1766,9 @@ __kernel void omega16 (
   lls[il] = ls[st + il];
   lkss[il] = kss[st + il];
 
+  // Ensure writes have completed:
+  // barrier(CLK_LOCAL_MEM_FENCE);   // Is stated in optimization guide since work group size is > 64
+
   for(i = 0; i < gr_load; i++){
     l = lls[i];
     k = lkss[i];
@@ -1796,20 +1794,70 @@ __kernel void omega16 (
   omega_global[ig] = maxW;
   index_global[ig] = maxI;
 
+}
 
-__kernel void omega17 (
+__kernel //__attribute__((reqd_work_group_size(64, 1, 1)))
+void omega17 (
+    __global float *omega_global, __global unsigned int *index_global, __constant float *lr, 
+    __constant float *ts, __constant int *km, int outer, int inner_gr,
+) {
+  unsigned int ig = get_global_id(0);
+  unsigned int ws = get_local_size(0);
+  unsigned int wg = get_group_id(0);
+
+  unsigned int io = ig & (outer - 1);
+  unsigned int st = (wg % inner_gr) * ws + outer;
+  unsigned int stt = ig * ws;
+
+  const float den_off = 0.00001f;
+  unsigned int maxI, i, ii, ip = 0;
+
+  float l, r, t, n, d, tmpW, maxW = 0.0f;
+  int k, m, ks, ms;
+
+  l = lr[io];
+  k = kss[io];
+  // l = ls[ig];
+  // k = kss[ig];
+  ks = (k * (k-1)) / 2;
+
+  #pragma unroll 8
+  for(i = st; i < ws + st; i++){
+    r = lr[i];
+    m = km[i];
+    t = ts[stt];
+
+    ms = (m * (m-1)) / 2;
+    n = (l + r) / (ks + ms);
+    d = (t - l - r) / (k * m) + den_off;
+    tmpW = n / d;
+
+    if(tmpW > maxW){
+      maxW = tmpW;
+      maxI = stt;
+    }
+    stt++;
+  }
+  omega_global[ig] = maxW;
+  index_global[ig] = maxI;
+}
+
+__kernel //__attribute__((reqd_work_group_size(64, 1, 1)))
+void omegatest2 (
     __global float *omega_global, __global unsigned int *index_global, __constant float *ls, 
-    __constant float *rs, __constant float *ts, __constant int *kss, __constant int *mss, int mult,
-    int iter, int inner, __local float *lrs, __local int *lmss
+    __constant float *rs, __constant float *ts, __constant int *kss, __constant int *mss,
+    int outer, int inner, __local float *lrs, __local int *lmss
 ) {
   unsigned int ig = get_global_id(0);
   unsigned int gs = get_global_size(0);
   unsigned int il = get_local_id(0);
   unsigned int ws = get_local_size(0);
-  unsigned int outer = gs / mult;
-  unsigned int io = ig / mult;
-  unsigned int is = (ig % mult * iter) + outer;
-  unsigned int ic = io * inner + is - outer;
+  unsigned int wg = get_group_id(0);
+
+  unsigned int io = ig & (outer - 1);
+  unsigned int st = (wg % (inner / ws)) * ws + outer;
+  unsigned int stt = ig * ws;
+  unsigned int ic = io * inner + st;
 
   const float den_off = 0.00001f;
   unsigned int maxI, i, ii, ip = 0;
@@ -1823,15 +1871,26 @@ __kernel void omega17 (
   // k = kss[ig];
   ks = (k * (k-1)) / 2;
 
-  lrs[il] = rs[x + il];   // x = some starting point for this kernel or work group
-  lmss[il] = mss[x + il];
+  // lrs[il] = rs[st + il];
+  // lmss[il] = mss[st + il];
+  // lrs[il] = rs[ig];
+  // lmss[il] = mss[ig];
 
-  for(i = 0; i < iter; i++){
-    ii = (i + il) % ws;
-    r = lrs[ii];
-    m = lmss[ii];
-    t = ts[ip + ig];
-    ip += gs;
+  // Ensure writes have completed:
+  // barrier(CLK_LOCAL_MEM_FENCE);   // Is stated in optimization guide since work group size is > 64
+
+  #pragma unroll 8
+  // for(i = 0; i < ws; i++){
+  //   ii = st + ((i + il) & (ws - 1));
+  for(i = st; i < ws + st; i++){
+    // ii = (i + il) & (ws - 1);
+    // r = lrs[i];
+    // m = lmss[i];
+    r = ls[i];
+    m = kss[i];
+    // t = ts[ip + ig];
+    // ip += gs;
+    t = ts[stt];
 
     ms = (m * (m-1)) / 2;
     n = (l + r) / (ks + ms);
@@ -1840,10 +1899,11 @@ __kernel void omega17 (
 
     if(tmpW > maxW){
       maxW = tmpW;
-      maxI = ic;
+      // maxI = i;
+      maxI = stt;
     }
-    ic++;
+    stt++;
   }
   omega_global[ig] = maxW;
-  index_global[ig] = maxI + ic;
+  index_global[ig] = maxI;
 }
