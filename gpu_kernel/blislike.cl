@@ -1796,8 +1796,7 @@ __kernel void omega16 (
 
 }
 
-__kernel //__attribute__((reqd_work_group_size(64, 1, 1)))
-void omega17 (
+__kernel void omega17 (
     __global float *omega_global, __global unsigned int *index_global, __constant float *lr, 
     __constant float *ts, __constant int *km, int outer, int inner
 ) {
@@ -1805,43 +1804,37 @@ void omega17 (
   unsigned int ws = get_local_size(0);
   unsigned int wg = get_group_id(0);
 
-  unsigned int inner_gr = (inner / ws);
   unsigned int io = ig & (outer - 1);
-  // unsigned int io = ig / inner_gr;
-  unsigned int st = (wg % inner_gr) * ws + outer;
-  // unsigned int st = (ig % inner_gr) * ws + outer;
-  // unsigned int stt = ig * ws;
-  unsigned int stt = io * inner + (wg % inner_gr) * ws;
+  unsigned int st = wg % (inner / ws) * ws + outer;
 
   const float den_off = 0.00001f;
-  unsigned int maxI, i, ii, ip = 0;
+  unsigned int maxI, i;
 
   float l, r, t, n, d, tmpW, maxW = 0.0f;
   int k, m, ks, ms;
 
   l = lr[io];
   k = km[io];
-  ks = (k * (k-1)) / 2;
+  // ks = (k * (k-1)) / 2;
 
   #pragma unroll 8
   for(i = st; i < ws + st; i++){
     r = lr[i];
     m = km[i];
-    t = ts[stt];
+    t = ts[i - outer + io * inner];
 
-    ms = (m * (m-1)) / 2;
-    n = (l + r) / (ks + ms);
+    // ms = (m * (m-1)) / 2;
+    n = (l + r) / ((k * (k-1)) / 2 + (m * (m-1)) / 2);
     d = (t - l - r) / (k * m) + den_off;
     tmpW = n / d;
 
     if(tmpW > maxW){
       maxW = tmpW;
-      maxI = stt;
+      maxI = i;
     }
-    stt++;
   }
   omega_global[ig] = maxW;
-  index_global[ig] = maxI;
+  index_global[ig] = maxI - outer + io * inner;
 }
 
 __kernel //__attribute__((reqd_work_group_size(64, 1, 1)))
