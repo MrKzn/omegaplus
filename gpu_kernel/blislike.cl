@@ -692,20 +692,20 @@ __kernel void omega3 (
 ) {
   const unsigned int i = get_global_id(0);
 
-  const int outer_i = i / inner + inner;
-	const int inner_i = i % inner;
+  unsigned int outer_i = i / inner + inner;
+	unsigned int inner_i = i % inner;
 
   int vk = km[outer_i];
-  int ksel2 = vk * (vk-1) / 2;
+  int ksel2 = (vk * (vk-1)) / 2;
 
   int vm = km[inner_i];
   int msel2 = (vm * (vm-1)) / 2;
 
-  float numerator = (lr[outer_i] + lr[inner_i]) / (ksel2 + msel2);
+  float n = (lr[outer_i] + lr[inner_i]) / (ksel2 + msel2);
 
-  float denominator = (ts[i] - lr[outer_i] - lr[inner_i]) / (vk*vm) + 0.00001;
+  float d = (ts[i] - lr[outer_i] - lr[inner_i]) / (vk*vm) + 0.00001;
 
-  omega[i] = numerator / denominator;
+  omega[i] = n / d;
 }
 
 __kernel void omega4 (
@@ -1804,8 +1804,15 @@ __kernel void omega17 (
   unsigned int ws = get_local_size(0);
   unsigned int wg = get_group_id(0);
 
-  unsigned int io = ig & (outer - 1);
-  unsigned int st = wg % (inner / ws) * ws + outer;
+  // unsigned int io = ig & (outer - 1);
+  unsigned int io = ig % outer;
+  // unsigned int st = wg % (inner / ws) * ws + outer;
+  unsigned int st = wg / (outer / ws) * ws + outer;
+
+  // unsigned int st = ((outer/ws) % (inner/ws) == 0 || 
+  //                   (inner/ws) % (outer/ws) == 0) ? 
+  //                   (ig/inner + wg) % (inner / ws) * ws + outer :
+  //                   wg % (inner / ws) * ws + outer;
 
   const float den_off = 0.00001f;
   unsigned int maxI, i;
