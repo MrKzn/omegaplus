@@ -870,7 +870,7 @@ int main(int argc, char** argv)
 	int maxomegamaxLeftIndex = -1;
 	int maxomegamaxRightIndex = -1;
 
-	double time0, time1, time2, time3, time4=.0, totalTimeL=.0, totalTimeG0 = gettime(), totalTimeG1;
+	double time0, time1, totalTimeL=.0, totalTimeG0 = gettime(), totalTimeG1;
 
   	char** recfile = malloc(sizeof(char*));
   	      *recfile = NULL;
@@ -1672,22 +1672,14 @@ int main(int argc, char** argv)
 #else
 		    
 		    alignment->correlationMatrix = createCorrelationMatrix(alignment->correlationMatrix,matrixSizeMax);
-		    lvw_i=-1;
-
-			// int max_outer = 0;
-			// int max_inner = 0;
-
-			// int j, iter=100;
+		    
+			lvw_i=-1;
 		    
 		    for(i=0;i<grid;i++){
 				cvw_i=findNextValidOmega(omega, lvw_i, grid);
 
 				if(validGridP(cvw_i,grid))
 				{
-					// max_outer = (omega[cvw_i].leftminIndex - omega[cvw_i].leftIndex) - (omega[cvw_i].leftIndex - omega[cvw_i].leftIndex) + 1;
-					// max_inner = (omega[cvw_i].rightIndex - omega[cvw_i].leftIndex) - (omega[cvw_i].rightminIndex - omega[cvw_i].leftIndex) + 1;
-					// printf("Total1: %lu\n",max_outer*max_inner);
-
 					overlapCorrelationMatrixAdditions (alignment, omega, lvw_i, cvw_i, 
 									&firstRowToCopy, &firstRowToCompute, &firstRowToAdd);
 					
@@ -1697,53 +1689,16 @@ int main(int argc, char** argv)
 
 					applyCorrelationMatrixAdditions (omega, cvw_i,firstRowToAdd,alignment->correlationMatrix);
 
-					// max_outer = (omega[cvw_i].leftminIndex - omega[cvw_i].leftIndex) - (omega[cvw_i].leftIndex - omega[cvw_i].leftIndex) + 1;
-					// max_inner = (omega[cvw_i].rightIndex - omega[cvw_i].leftIndex) - (omega[cvw_i].rightminIndex - omega[cvw_i].leftIndex) + 1;
-					// printf("Kernel Iter: %lu\n",(((max_outer*max_inner) + (work_items - 1)) / work_items));
+					// ifdef GPU?? if(gpu)??
+					computeOmegas_gpu(alignment, omega, cvw_i, functionData,NULL);
 
-					// max_outer = (omega[cvw_i].leftminIndex - omega[cvw_i].leftIndex) - (omega[cvw_i].leftIndex - omega[cvw_i].leftIndex) + 1;
-					// max_inner = (omega[cvw_i].rightIndex - omega[cvw_i].leftIndex) - (omega[cvw_i].rightminIndex - omega[cvw_i].leftIndex) + 1;
-					// printf("Total2: %lu\n",max_outer*max_inner);
-
-					time2 = gettime();
-					// for(j=0;j<iter;j++){
-						computeOmegas_gpu(alignment, omega, cvw_i, functionData,NULL);
-						// computeOmegas (alignment, omega, cvw_i, functionData,NULL);
-						// computeOmegaValues_gpu4(omega, cvw_i, alignment->correlationMatrix, NULL, omegas, LSs, RSs, TSs, ks, ms);
-					// }
-					time3 = gettime();
-					// printf("%lf\n",time3-time2);
-					time4 += time3 - time2;
-					// printf("Compute: %f\n",(time3-time2)/iter);
-
-					// int outer_cnt = omega[cvw_i].leftminIndex - omega[cvw_i].leftIndex - omega[cvw_i].leftIndex - omega[cvw_i].leftIndex + 1;
-					// int inner_cnt = omega[cvw_i].rightIndex - omega[cvw_i].leftIndex - omega[cvw_i].rightminIndex - omega[cvw_i].leftIndex + 1;
-					// printf("outer: %d, inner: %d\n", outer_cnt, inner_cnt);
-					
-					// if(outer_cnt>max_outer)
-					// {
-					// 	max_outer = outer_cnt;
-					// }
-					// if(inner_cnt>max_inner)
-					// {
-					// 	max_inner = inner_cnt;
-					// }
-
-					// For writing an array of "omegaIndex" to write larger chunks of data to GPU
-					// indexes[cnt] = cvw_i;
-					// cnt++;
+					// computeOmegas (alignment, omega, cvw_i, functionData,NULL);
 					
 					lvw_i = cvw_i;
 				}
-				// break;
+
 				appendOmegaResultToFile (alignment, omega, i, i+1, fpReport, resultType);
 		    }
-			
-			// For writing an array of "omegaIndex" to write larger chunks of data to GPU
-			// time2 = gettime();
-			// computeOmegaValues_gpu3 (omega, alignment->correlationMatrix, NULL, indexes, cnt);
-			// time4 = gettime() - time2;
-			printf("Compute: %f\n",time4);
 #endif		    
 #endif
 
