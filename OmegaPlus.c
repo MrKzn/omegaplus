@@ -893,11 +893,14 @@ int main(int argc, char** argv)
 
 	omega_struct * omega;
 
+	// qLD GPU calculations
 	// uint32_t * qLD_res=NULL;
+	// Omega GPU calculations
+	int gpu=0;
 	
    	commandLineParser(argc, argv, inputFileName, &grid, &alignmentLength, &minw, &maxw, recfile, 
 			  &minsnps, &imputeN, &imputeG, &binary, &seed, &fileFormat, &threads, &resultType, &ld, &borderTol, &filterOut, &noSeparation, sampleVCFfileName,
-			  &generateVCFsamplelist, &memLimit, &reports, &maf, &fileFormatMBS);
+			  &generateVCFsamplelist, &memLimit, &reports, &maf, &fileFormatMBS, &gpu);
 
 	maxwUSER = maxw;
 
@@ -973,8 +976,8 @@ int main(int argc, char** argv)
 #ifdef _SHARED
 	compute_bits_in_16bits();
 #endif
-	// ifdef GPU?? if(gpu)??			
-	gpu_init();
+	if(gpu)			
+		gpu_init();
 
 	srand(seed);
 
@@ -1689,10 +1692,10 @@ int main(int argc, char** argv)
 
 					applyCorrelationMatrixAdditions (omega, cvw_i,firstRowToAdd,alignment->correlationMatrix);
 
-					// ifdef GPU?? if(gpu)??
-					computeOmegas_gpu(alignment, omega, cvw_i, functionData,NULL);
-
-					// computeOmegas (alignment, omega, cvw_i, functionData,NULL);
+					if(gpu)
+						computeOmegas_gpu(alignment, omega, cvw_i, functionData,NULL);
+					else
+						computeOmegas (alignment, omega, cvw_i, functionData,NULL);
 					
 					lvw_i = cvw_i;
 				}
@@ -1730,8 +1733,8 @@ int main(int argc, char** argv)
 		alignmentIndex++;	
 	}
 
-	// ifdef GPU?? if(gpu)??
-	gpu_release();
+	if(gpu)
+		gpu_release();
 
 #ifdef _USE_PTHREADS
 #ifndef _USE_PTHREADS_MEMINT

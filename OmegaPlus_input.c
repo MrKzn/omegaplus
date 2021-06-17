@@ -380,7 +380,8 @@ void commandLineParser(int argc, char** argv,
 		       int *memLimit,
 		       int * reports,
 		       double * maf,
-		       int * fileFormatMBS)
+		       int * fileFormatMBS,
+			   int * gpu)
 {
   int i, nameSet = 0, fileSet=0, gridSet=0, lengthSet=0, minwSet=0, maxwSet=0, seedSet=0, imputeSet=0, binarySet=0, seedCheck=0;
 	char impute, model[100];
@@ -715,6 +716,13 @@ void commandLineParser(int argc, char** argv,
 		if(!strcmp(argv[i], "-mbs"))
 		{
 			*fileFormatMBS = 1;
+			continue;
+		}
+
+		// Omega GPU calculations
+		if(!strcmp(argv[i], "-gpu"))
+		{
+			*gpu = 1;
 			continue;
 		}
 

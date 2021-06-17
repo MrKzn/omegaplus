@@ -288,7 +288,7 @@ void computeCorrelationMatrixPairwise(alignment_struct * alignment, omega_struct
 void applyCorrelationMatrixAdditions (omega_struct * omega, int omegaIndex, int firstRowIndex, cor_t ** correlationMatrix);
 void overlapCorrelationMatrixAdditions (alignment_struct * alignment, omega_struct * omega, int lvw_i, int cvw_i, int * firstRowToCopy, int * firstRowToCompute, int * firstRowToAdd);
 void shiftCorrelationMatrixValues (omega_struct * omega, int lvw_i, int cvw_i, int firstRowToCopy, cor_t ** correlationMatrix);
-void commandLineParser(int argc, char** argv, char* infile, int* grid, int* length, int* minw, int* maxw, char** recfile, int* minsnps, int * imputeN, int * imputeG, int * binary, unsigned int * seed, int * fileFormat, int * threads,int * results,int * ld,int *borderTol, int *filterOut, int* noSeparator, char * samplefile_i, int * generateVCFsamplelist, int * memLimit, int * reports, double * maf, int * fileFormatMBS);
+void commandLineParser(int argc, char** argv, char* infile, int* grid, int* length, int* minw, int* maxw, char** recfile, int* minsnps, int * imputeN, int * imputeG, int * binary, unsigned int * seed, int * fileFormat, int * threads,int * results,int * ld,int *borderTol, int *filterOut, int* noSeparator, char * samplefile_i, int * generateVCFsamplelist, int * memLimit, int * reports, double * maf, int * fileFormatMBS, int * gpu);
 int findFirstAlignment(alignment_struct *alignment, FILE *fp, FILE *fpInfo,int format, FILE *fpVCFsamples, int generateVCFsamplelist, char * vcf_samples_filename);
 int findNextAlignment(FILE *fp, int fileFormat);
 void freeAlignment(alignment_struct *alignment, int matrixSizeMax);
