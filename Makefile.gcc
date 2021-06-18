@@ -9,7 +9,7 @@ LIBRARIES = -lm -lOpenCL
 
 EXECNAME = OmegaPlus
 
-OBJS = OmegaPlus.o OmegaPlus_input.o OmegaPlus_compression.o OmegaPlus_correlation.o OmegaPlus_omega.o
+OBJS = OmegaPlus.o OmegaPlus_input.o OmegaPlus_compression.o OmegaPlus_correlation.o OmegaPlus_omega.o OmegaPlus_gpu.o
 
 all: $(EXECNAME)
 
@@ -30,6 +30,9 @@ OmegaPlus_correlation.o: OmegaPlus_correlation.c
 
 OmegaPlus_omega.o: OmegaPlus_omega.c 
 	$(CC) $(CFLAGS) -c OmegaPlus_omega.c
+	
+OmegaPlus_gpu.o: OmegaPlus_gpu.c 
+	$(CC) $(CFLAGS) -c OmegaPlus_gpu.c
 
 
 clean:

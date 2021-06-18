@@ -1673,7 +1673,12 @@ int main(int argc, char** argv)
 //		free(total_omega_values_time);
 		free(genGridList);
 #else
-		    
+
+			// qLD
+			uint32_t * qLD_res=NULL;
+			if(gpu)
+				qLD_res = correlate_gpu(alignment->compressedArrays[0],alignment->segsites,alignment->siteSize);
+			
 		    alignment->correlationMatrix = createCorrelationMatrix(alignment->correlationMatrix,matrixSizeMax);
 		    
 			lvw_i=-1;
@@ -1688,7 +1693,10 @@ int main(int argc, char** argv)
 					
 					shiftCorrelationMatrixValues (omega, lvw_i, cvw_i, firstRowToCopy, alignment->correlationMatrix);
 
-					computeCorrelationMatrixPairwise (alignment, omega, cvw_i, firstRowToCompute, functionData, NULL,NULL);					
+					if(gpu)
+						computeCorrelationMatrixPairwiseGPU (alignment, omega, cvw_i, firstRowToCompute, functionData, NULL,NULL, qLD_res);
+					else
+						computeCorrelationMatrixPairwise (alignment, omega, cvw_i, firstRowToCompute, functionData, NULL,NULL);
 
 					applyCorrelationMatrixAdditions (omega, cvw_i,firstRowToAdd,alignment->correlationMatrix);
 

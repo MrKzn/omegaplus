@@ -426,16 +426,9 @@ unsigned int cs_c;
 #define OMEGA_NAME2 "omega1"
 
 cl_mem omega_buffer;
-cl_mem LS_buffer;
-cl_mem RS_buffer;
 cl_mem TS_buffer;
-cl_mem k_buffer;
-cl_mem m_buffer;
-cl_mem LRkm_buffer;
 cl_mem LR_buffer;
 cl_mem km_buffer;
-cl_mem omega_im;
-cl_mem index_im;
 cl_mem index_buffer;
 cl_kernel omega_kernel;
 cl_kernel omega_kernel2;
@@ -450,8 +443,7 @@ void gpu_release(void);
 
 uint32_t * correlate_gpu(uint32_t* tableA,
                int tableAsize,
-               int compressed_snp_size,
-			   int group_size);
+               int compressed_snp_size);
 
 void printCLErr(cl_int err,int line, char* file);
 
@@ -483,6 +475,8 @@ void mlt_gpu(unsigned int m,
          unsigned int k,
          inputDataType_x32 *A,
          inputDataType_x32* tableA);
+
+void computeCorrelationMatrixPairwiseGPU(alignment_struct * alignment, omega_struct * omega, int omegaIndex, int firstRowIndex, void * threadData, cor_t ** myCorrelationMatrix, char * lookuptable, uint32_t * qLD_res);
 
 void computeOmegas_gpu (alignment_struct * alignment, omega_struct * omega, int omegaIndex, void * threadData, cor_t ** correlationMatrix);
 

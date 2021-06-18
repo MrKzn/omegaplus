@@ -821,7 +821,7 @@ void computeOmegas_generic (omega_struct * omega, int omegaIndex, float *** work
 {
 	computeOmegaValues_generic (omega, omegaIndex, NULL, NULL, workgroup_map_ptr,  first_group_index);
 }
-
+/*
 // qLD ADDED
 void Pack_A(uint32_t *A,
             unsigned int lda,
@@ -1465,3 +1465,4 @@ uint32_t * correlate_gpu(uint32_t* tableA,
 
 	return ((uint32_t*)C);
 }
+*/
