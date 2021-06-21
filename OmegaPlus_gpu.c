@@ -1382,10 +1382,22 @@ void gpu_init(void)
 	err = clGetKernelWorkGroupInfo(omega_kernel, devices[1],CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE, sizeof(size_t), &pref_group_size, NULL);
 	// printf("Work-group pref. multiple: %lu\n",pref_group_size);	// 64
 
+    // Get name of device
+    char* value;
+    size_t valueSize;
+    err |= clGetDeviceInfo(devices[1], CL_DEVICE_NAME, 0, NULL, &valueSize);
+    value = (char*)malloc(valueSize);
+    err |= clGetDeviceInfo(devices[1], CL_DEVICE_NAME, valueSize, value, NULL);
+    printCLErr(err,__LINE__,__FILE__);
+    printf("Device: %s\n", value);
+    free(value);
+
 	// Get number of work groups / compute units
 	err=clGetDeviceInfo(devices[1], CL_DEVICE_MAX_COMPUTE_UNITS, sizeof(cl_uint),
                         &comp_units, NULL);
     printCLErr(err,__LINE__,__FILE__);
+
+    printf("Compute units: %u\n", comp_units);
 
 	group_size = pref_group_size;
 
@@ -1411,7 +1423,7 @@ void gpu_init(void)
     printCLErr(err,__LINE__,__FILE__);
 
 	// Omega buffers
-	cl_ulong omega_buffer_size 	= 512 * 40000 * sizeof(float);		// # work items is unknown here, see 17
+	cl_ulong omega_buffer_size 	= 512 * 40000 * sizeof(float);		// # work items is unknown here, see omega2
 	cl_ulong LRkm_buffer_size 	= 2 * GPU_BLOCK_MC * sizeof(float);
 	cl_ulong TS_buffer_size 	= omega_buffer_size;
 	total += 2 * omega_buffer_size + 2 * LRkm_buffer_size + TS_buffer_size;
@@ -1549,6 +1561,7 @@ void gpu_release(void)
 {
     // Omega
 	clReleaseKernel(omega_kernel);
+    clReleaseKernel(omega_kernel2);
 	clReleaseMemObject(omega_buffer);
 	clReleaseMemObject(TS_buffer);
 	clReleaseMemObject(LR_buffer);
@@ -1565,7 +1578,6 @@ void gpu_release(void)
         //        for(int j=0; j < 4; j++)
         //            clReleaseEvent(events[(2*i)+j]);
     }
-    // clReleaseCommandQueue(compute_queue);
     clReleaseCommandQueue(io_queue);
     clReleaseCommandQueue(compute_queue);
     clReleaseProgram(program);
