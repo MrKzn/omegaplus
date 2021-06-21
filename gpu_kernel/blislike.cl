@@ -656,7 +656,7 @@ __kernel void omega1 (
 
   float n = (lr[outer_i] + lr[inner_i]) / (ksel2 + msel2);
 
-  float d = (ts[i] - lr[outer_i] - lr[inner_i]) / (vk*vm) + 0.00001;
+  float d = (ts[i] - lr[outer_i] - lr[inner_i]) / (vk*vm) + 0.00001f;
 
   omega[i] = n / d;
 }

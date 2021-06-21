@@ -101,6 +101,8 @@ void computeOmega_gpuF1(float * omegas, float * LR, int * km, float * T, int in_
 			1, &events[1], NULL
 			);
 	printCLErr(err,__LINE__,__FILE__);
+
+    clFinish(io_queue);
 }
 
 void computeOmega_gpuF2(float * omegas, unsigned int * indexes, float * LR, int * km, float * T, int in_out_cnt, int outer, int inner, unsigned int total){
@@ -110,7 +112,7 @@ void computeOmega_gpuF2(float * omegas, unsigned int * indexes, float * LR, int 
 	const size_t local = group_size;
 	const size_t global = work_items; 
 
-	// //set kernel arguments
+	// set kernel arguments
 	err |= clSetKernelArg(omega_kernel, 5, sizeof(cl_int), &outer);
 	err |= clSetKernelArg(omega_kernel, 6, sizeof(cl_int), &inner);
 	printCLErr(err,__LINE__,__FILE__);
@@ -175,6 +177,8 @@ void computeOmega_gpuF2(float * omegas, unsigned int * indexes, float * LR, int 
 			0, NULL, NULL
 			);
 	printCLErr(err,__LINE__,__FILE__);
+
+    clFinish(io_queue);
 }
 
 void computeOmegaValues_gpuF (omega_struct * omega, int omegaIndex, cor_t ** correlationMatrix, void * threadData)
@@ -219,7 +223,7 @@ void computeOmegaValues_gpuF (omega_struct * omega, int omegaIndex, cor_t ** cor
 		km = malloc(sizeof(*km) * in_out_cnt);
 		T = malloc(sizeof(*T) * work_total);
 
-		if(omegas==NULL || LR==NULL || km==NULL || T==NULL)
+		if(omegas==NULL || indexes==NULL || LR==NULL || km==NULL || T==NULL)
 			printf("MALLOC error\n");
 
 		Rm_i = outer_work;
