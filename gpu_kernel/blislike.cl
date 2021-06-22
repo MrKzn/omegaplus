@@ -657,7 +657,7 @@ __kernel void omega (
 
   float numerator = (ls[outer_i] + rs[inner_i]) / (ksel2 + msel2);
 
-  float denominator = (ts[i] - ls[outer_i] - rs[inner_i]) / (k[outer_i]*m[inner_i]) + 0.00001;
+  float denominator = (ts[i] - ls[outer_i] - rs[inner_i]) / (k[outer_i]*m[inner_i]) + 0.00001f;
 
   omega[i] =  numerator / denominator;
 
@@ -678,7 +678,7 @@ __kernel void omega2 (
 
   float numerator = (ls[i] + rs[i]) / (ksel2 + msel2);
 
-  float denominator = (ts[i] - ls[i] - rs[i]) / (k[i]*m[i]) + 0.00001;
+  float denominator = (ts[i] - ls[i] - rs[i]) / (k[i]*m[i]) + 0.00001f;
 
   omega[i] =  numerator / denominator;
 
@@ -703,7 +703,7 @@ __kernel void omega3 (
 
   float n = (lr[outer_i] + lr[inner_i]) / (ksel2 + msel2);
 
-  float d = (ts[i] - lr[outer_i] - lr[inner_i]) / (vk*vm) + 0.00001;
+  float d = (ts[i] - lr[outer_i] - lr[inner_i]) / (vk*vm) + 0.00001f;
 
   omega[i] = n / d;
 }
@@ -737,7 +737,7 @@ __kernel void omega4 (
 
     numerator = (lrkm[io] + lrkm[ii]) / (ksel + msel);
 
-    denominator = (ts[id] - lrkm[io] - lrkm[ii]) / (vk*vm) + 0.00001;
+    denominator = (ts[id] - lrkm[io] - lrkm[ii]) / (vk*vm) + 0.00001f;
 
     tmpW = numerator / denominator;
 
@@ -796,7 +796,7 @@ __kernel void omega5 (
 
     numerator = (ls[id] + rs[id]) / (ksel + msel);
 
-    denominator = (ts[id] - ls[id] - rs[id]) / (k[id]*m[id]) + 0.00001;
+    denominator = (ts[id] - ls[id] - rs[id]) / (k[id]*m[id]) + 0.00001f;
 
     tmpW = numerator / denominator;
 
@@ -854,7 +854,7 @@ __kernel void omega6 (
 
     numerator = (lr[io] + lr[ii]) / (ksel + msel);
 
-    denominator = (ts[id] - lr[io] - lr[ii]) / (vk*vm) + 0.00001;
+    denominator = (ts[id] - lr[io] - lr[ii]) / (vk*vm) + 0.00001f;
 
     tmpW = numerator / denominator;
 
