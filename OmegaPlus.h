@@ -436,11 +436,12 @@ unsigned int cs_c;
 // #define OMEGA_NAME "omega14"
 // #define OMEGA_NAME "omega15"
 // #define OMEGA_NAME "omega16"
-#define OMEGA_NAME "omega17"
+// #define OMEGA_NAME "omega17"
+#define OMEGA_NAME "omega18"
 // #define OMEGA_NAME "omegatest2"
-// #define OMEGA_NAME2 ""
+#define OMEGA_NAME2 ""
 // #define OMEGA_NAME2 "omega10"
-#define OMEGA_NAME2 "omega3"
+// #define OMEGA_NAME2 "omega3"
 
 cl_mem omega_buffer;
 cl_mem LS_buffer;

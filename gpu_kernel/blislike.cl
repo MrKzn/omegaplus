@@ -1845,6 +1845,58 @@ __kernel void omega17 (
 }
 
 __kernel //__attribute__((reqd_work_group_size(64, 1, 1)))
+void omega18 (
+    __global float *omega_global, __global unsigned int *index_global, __constant float *lr, 
+    __constant float *ts, __constant int *km, int outer, int inner,
+    __local float *lrs, __local int *lmss
+) {
+  unsigned int ig = get_global_id(0);
+  unsigned int gs = get_global_size(0);
+  unsigned int il = get_local_id(0);
+  unsigned int ws = get_local_size(0);
+  unsigned int wg = get_group_id(0);
+
+  unsigned int io = ig % outer;
+  unsigned int st = (wg / (inner / ws)) * ws + outer;
+
+  const float den_off = 0.00001f;
+  unsigned int maxI, i, ii, ip = 0;
+
+  float l, r, t, n, d, tmpW, maxW = 0.0f;
+  int k, m, ks, ms;
+
+  l = lr[io];
+  k = km[io];
+  ks = (k * (k-1)) / 2;
+
+  lrs[il] = lr[st + il];
+  lmss[il] = km[st + il];
+
+  // Ensure writes have completed:
+  barrier(CLK_LOCAL_MEM_FENCE);   // Is stated in optimization guide since work group size is > 64
+
+  #pragma unroll 8
+  for(i = 0; i < ws; i++){
+    r = lrs[i];
+    m = lmss[i];
+
+    t = ts[st - outer + io * inner + i];
+
+    ms = (m * (m-1)) / 2;
+    n = (l + r) / (ks + ms);
+    d = (t - l - r) / (k * m) + den_off;
+    tmpW = n / d;
+
+    if(tmpW > maxW){
+      maxW = tmpW;
+      maxI = i;
+    }
+  }
+  omega_global[ig] = maxW;
+  index_global[ig] = maxI + st - outer + io * inner;;
+}
+
+__kernel //__attribute__((reqd_work_group_size(64, 1, 1)))
 void omegatest2 (
     __global float *omega_global, __global unsigned int *index_global, __constant float *ls, 
     __constant float *rs, __constant float *ts, __constant int *kss, __constant int *mss,
@@ -1856,8 +1908,8 @@ void omegatest2 (
   unsigned int ws = get_local_size(0);
   unsigned int wg = get_group_id(0);
 
-  unsigned int io = ig & (outer - 1);
-  unsigned int st = (wg % (inner / ws)) * ws + outer;
+  unsigned int io = ig % outer;
+  unsigned int st = (wg / (inner / ws)) * ws + outer;
   unsigned int stt = ig * ws;
   // unsigned int stt = io * inner + (ig / outer) * ws;
   unsigned int ic = io * inner + st;
@@ -1874,23 +1926,23 @@ void omegatest2 (
   // k = kss[ig];
   ks = (k * (k-1)) / 2;
 
-  // lrs[il] = rs[st + il];
-  // lmss[il] = mss[st + il];
+  lrs[il] = ls[st + il];
+  lmss[il] = kss[st + il];
   // lrs[il] = rs[ig];
   // lmss[il] = mss[ig];
 
   // Ensure writes have completed:
-  // barrier(CLK_LOCAL_MEM_FENCE);   // Is stated in optimization guide since work group size is > 64
+  barrier(CLK_LOCAL_MEM_FENCE);   // Is stated in optimization guide since work group size is > 64
 
   #pragma unroll 8
-  // for(i = 0; i < ws; i++){
+  for(i = 0; i < ws; i++){
   //   ii = st + ((i + il) & (ws - 1));
-  for(i = st; i < ws + st; i++){
+  // for(i = st; i < ws + st; i++){
     // ii = (i + il) & (ws - 1);
-    // r = lrs[i];
-    // m = lmss[i];
-    r = ls[i];
-    m = kss[i];
+    r = lrs[i];
+    m = lmss[i];
+    // r = ls[i];
+    // m = kss[i];
     // t = ts[ip + ig];
     // ip += gs;
     t = ts[stt];
