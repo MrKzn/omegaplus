@@ -1851,7 +1851,6 @@ void omega18 (
     __local float *lrs, __local int *lmss
 ) {
   unsigned int ig = get_global_id(0);
-  unsigned int gs = get_global_size(0);
   unsigned int il = get_local_id(0);
   unsigned int ws = get_local_size(0);
   unsigned int wg = get_group_id(0);
@@ -1880,7 +1879,7 @@ void omega18 (
     r = lrs[i];
     m = lmss[i];
 
-    t = ts[st - outer + io * inner + i];
+    t = ts[i + st - outer + io * inner];
 
     ms = (m * (m-1)) / 2;
     n = (l + r) / (ks + ms);
