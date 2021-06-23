@@ -1892,7 +1892,7 @@ void omega18 (
     }
   }
   omega_global[ig] = maxW;
-  index_global[ig] = maxI + st - outer + io * inner;;
+  index_global[ig] = maxI + st - outer + io * inner;
 }
 
 __kernel //__attribute__((reqd_work_group_size(64, 1, 1)))
