@@ -1313,6 +1313,7 @@ void gpu_init(void)
 {
     // ---- OpenCL stuff ---------------
     int err;
+    unsigned int i;
 
     // query number of platforms we have
     unsigned int num_platforms=0;
@@ -1338,36 +1339,63 @@ void gpu_init(void)
     // NOTE: arbitrarily pick first platform
     err=clGetDeviceIDs(platforms[0], CL_DEVICE_TYPE_GPU, num_devices, devices, NULL);
     printCLErr(err,__LINE__,__FILE__);
-   
-    context=clCreateContext(NULL, 1, &devices[1], NULL, NULL, &err);
+
+    // Let user choose best GPU
+    char * vendor = NULL, * name = NULL;
+    size_t valueSize;
+    
+    for(i = 0; i < num_devices; i++)
+    {
+        err |= clGetDeviceInfo(devices[i], CL_DEVICE_NAME, 0, NULL, &valueSize);
+        name = (char*)malloc(valueSize);
+        err |= clGetDeviceInfo(devices[i], CL_DEVICE_NAME, valueSize, name, NULL);
+        err |= clGetDeviceInfo(devices[i], CL_DEVICE_VENDOR, 0, NULL, &valueSize);
+        vendor = (char*)malloc(valueSize);
+        err |= clGetDeviceInfo(devices[i], CL_DEVICE_VENDOR, valueSize, vendor, NULL);
+        printCLErr(err,__LINE__,__FILE__);
+        printf("GPU %u: %s - %s\n",i, vendor, name);
+    }
+    free(name);
+    free(vendor);
+
+    int gpu, result;
+    do{
+        printf("Which GPU do you want to use (enter # and press enter): ");
+        result = scanf("%d", &gpu);
+        if(result == 0)
+            while (fgetc(stdin) != '\n'); // Read until a newline is found
+    } while (result == EOF || result == 0 || gpu >= num_devices);
+
+
+    context=clCreateContext(NULL, 1, &devices[gpu], NULL, NULL, &err);
     printCLErr(err,__LINE__,__FILE__);
 
     create_program_with_source(&program, &context, PROGRAM_FILE);
 
     // add any kernel compiler options to this string
     const char* options="-cl-mad-enable";
-    err=clBuildProgram(program, 1, &devices[1], options, NULL, NULL);
+    err=clBuildProgram(program, 1, &devices[gpu], options, NULL, NULL);
     // print build errors
     if(err != CL_SUCCESS)
     {
         perror("error during build");
         size_t log_size=0;
-        clGetProgramBuildInfo(program, devices[1], CL_PROGRAM_BUILD_LOG, 0, NULL,
+        clGetProgramBuildInfo(program, devices[gpu], CL_PROGRAM_BUILD_LOG, 0, NULL,
                               &log_size);
         char *program_log=(char*)malloc(log_size+1);
         assert(program_log);
         program_log[log_size]='\0';
-        clGetProgramBuildInfo(program, devices[1], CL_PROGRAM_BUILD_LOG,
+        clGetProgramBuildInfo(program, devices[gpu], CL_PROGRAM_BUILD_LOG,
                               log_size+1, program_log, NULL);
         printf("%s\n", program_log);
         free(program_log);
         exit(1);
     }
 
-    io_queue=clCreateCommandQueue(context, devices[1], CL_QUEUE_PROFILING_ENABLE, &err);
+    io_queue=clCreateCommandQueue(context, devices[gpu], CL_QUEUE_PROFILING_ENABLE, &err);
     printCLErr(err,__LINE__,__FILE__);
 
-    compute_queue=clCreateCommandQueue(context, devices[1], CL_QUEUE_PROFILING_ENABLE,
+    compute_queue=clCreateCommandQueue(context, devices[gpu], CL_QUEUE_PROFILING_ENABLE,
                                        &err);
     printCLErr(err,__LINE__,__FILE__);
 
@@ -1381,23 +1409,13 @@ void gpu_init(void)
 
 	// Get workgroup size or preferred size
 	size_t max_group_size, pref_group_size;
-	err = clGetKernelWorkGroupInfo(omega_kernel, devices[1],CL_KERNEL_WORK_GROUP_SIZE, sizeof(size_t), &max_group_size, NULL);
+	err = clGetKernelWorkGroupInfo(omega_kernel, devices[gpu],CL_KERNEL_WORK_GROUP_SIZE, sizeof(size_t), &max_group_size, NULL);
 	// printf("Max kernel work-group size: %lu\n",max_group_size);	// 256
-	err = clGetKernelWorkGroupInfo(omega_kernel, devices[1],CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE, sizeof(size_t), &pref_group_size, NULL);
+	err = clGetKernelWorkGroupInfo(omega_kernel, devices[gpu],CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE, sizeof(size_t), &pref_group_size, NULL);
 	// printf("Work-group pref. multiple: %lu\n",pref_group_size);	// 64
 
-    // Get name of device
-    char* value;
-    size_t valueSize;
-    err |= clGetDeviceInfo(devices[1], CL_DEVICE_NAME, 0, NULL, &valueSize);
-    value = (char*)malloc(valueSize);
-    err |= clGetDeviceInfo(devices[1], CL_DEVICE_NAME, valueSize, value, NULL);
-    printCLErr(err,__LINE__,__FILE__);
-    printf("Device: %s\n", value);
-    free(value);
-
 	// Get number of work groups / compute units
-	err=clGetDeviceInfo(devices[1], CL_DEVICE_MAX_COMPUTE_UNITS, sizeof(cl_uint),
+	err=clGetDeviceInfo(devices[gpu], CL_DEVICE_MAX_COMPUTE_UNITS, sizeof(cl_uint),
                         &comp_units, NULL);
     printCLErr(err,__LINE__,__FILE__);
 
@@ -1417,12 +1435,12 @@ void gpu_init(void)
 	total = 2*a_buffer_size + 2*b_buffer_size + 2*c_buffer_size;
 
     cl_ulong max_alloc=0;
-    err=clGetDeviceInfo(devices[1], CL_DEVICE_MAX_MEM_ALLOC_SIZE,sizeof(max_alloc),
+    err=clGetDeviceInfo(devices[gpu], CL_DEVICE_MAX_MEM_ALLOC_SIZE,sizeof(max_alloc),
                         &max_alloc, NULL);
     printCLErr(err,__LINE__,__FILE__);
 
     cl_ulong global_mem=0;
-    err=clGetDeviceInfo(devices[1], CL_DEVICE_GLOBAL_MEM_SIZE,sizeof(global_mem),
+    err=clGetDeviceInfo(devices[gpu], CL_DEVICE_GLOBAL_MEM_SIZE,sizeof(global_mem),
                         &global_mem, NULL);
     printCLErr(err,__LINE__,__FILE__);
 
@@ -1448,7 +1466,6 @@ void gpu_init(void)
         exit(1);
     }
 
-    unsigned int i;
     // NOTE: this is what's being passed in for the other GEMM implementation
     rs_c=1;
     cs_c=GPU_BLOCK_MC;
@@ -1532,29 +1549,29 @@ void gpu_init(void)
 
 	// Get device max workgroup size
 	// size_t group_size;
-	// err=clGetDeviceInfo(devices[1], CL_DEVICE_MAX_WORK_GROUP_SIZE, sizeof(size_t),
+	// err=clGetDeviceInfo(devices[gpu], CL_DEVICE_MAX_WORK_GROUP_SIZE, sizeof(size_t),
     //                     &group_size, NULL);
     // printCLErr(err,__LINE__,__FILE__);
 	// printf("max workgroup size: %lu\n",group_size);
 	// Get constant memory info
 	// cl_uint max_args;
 	// cl_ulong max_const;
-	// err=clGetDeviceInfo(devices[1], CL_DEVICE_MAX_CONSTANT_ARGS, sizeof(cl_uint),
+	// err=clGetDeviceInfo(devices[gpu], CL_DEVICE_MAX_CONSTANT_ARGS, sizeof(cl_uint),
     //                     &max_args, NULL);		// 16
     // printCLErr(err,__LINE__,__FILE__);
-	// err=clGetDeviceInfo(devices[1], CL_DEVICE_MAX_CONSTANT_BUFFER_SIZE, sizeof(cl_ulong),
+	// err=clGetDeviceInfo(devices[gpu], CL_DEVICE_MAX_CONSTANT_BUFFER_SIZE, sizeof(cl_ulong),
     //                     &max_const, NULL);		// 1503238400
     // printCLErr(err,__LINE__,__FILE__);
 	// printf("Arg: %u, Size: %lu\n",max_args,max_const);
 	// Get local memory info
 	// cl_ulong max_local;
-	// err=clGetDeviceInfo(devices[1], CL_DEVICE_LOCAL_MEM_SIZE, sizeof(cl_ulong),
+	// err=clGetDeviceInfo(devices[gpu], CL_DEVICE_LOCAL_MEM_SIZE, sizeof(cl_ulong),
     //                     &max_local, NULL);		// 32768
     // printCLErr(err,__LINE__,__FILE__);
 	// printf("Size: %lu\n",max_local);
 	// Get timer resolution info
 	// cl_ulong resolution;
-	// clGetDeviceInfo(devices[1], CL_DEVICE_PROFILING_TIMER_RESOLUTION, sizeof(cl_ulong), 
+	// clGetDeviceInfo(devices[gpu], CL_DEVICE_PROFILING_TIMER_RESOLUTION, sizeof(cl_ulong), 
 	// 						&resolution, NULL);		// 0
 	// printCLErr(err,__LINE__,__FILE__);
 	// printf("Res: %lu\n",resolution);
