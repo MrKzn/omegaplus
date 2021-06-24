@@ -436,6 +436,7 @@ cl_kernel omega_kernel2;
 cl_uint comp_units;
 size_t group_size;
 size_t work_items;
+cl_long max_omegas, max_LRkm, max_TS;
 
 void gpu_init(void);
 

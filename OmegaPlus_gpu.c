@@ -214,8 +214,14 @@ void computeOmegaValues_gpuF (omega_struct * omega, int omegaIndex, cor_t ** cor
 		work_total = outer_work * inner_work;
 		in_out_cnt = outer_work + inner_work;
 
-		work_groups = work_total / (group_size * group_size);
-		work_items = group_size * work_groups;
+		// work_groups = work_total / (group_size * group_size);
+		// work_items = group_size * work_groups;
+        work_items = work_total / group_size;
+
+        if(work_items > max_omegas || total > max_TS || in_out_cnt > max_LRkm){
+            printf("Grid point %d is skipped due to insufficient GPU memory\n",omegaIndex);
+            return;
+        }
 
 		omegas = malloc(sizeof(*omegas)*work_items);
 		indexes = malloc(sizeof(*indexes)*work_items);
@@ -285,6 +291,11 @@ void computeOmegaValues_gpuF (omega_struct * omega, int omegaIndex, cor_t ** cor
 	else
 	{
 		in_out_cnt = outer_cnt + inner_cnt;
+
+        if(work_items > max_omegas || total > max_TS || in_out_cnt > max_LRkm){
+            printf("Grid point %d is skipped due to insufficient GPU memory\n",omegaIndex);
+            return;
+        }
 
 		omegas = malloc(sizeof(*omegas)*total);
 		LR = malloc(sizeof(*LR)*in_out_cnt);
@@ -1444,10 +1455,19 @@ void gpu_init(void)
                         &global_mem, NULL);
     printCLErr(err,__LINE__,__FILE__);
 
-	// Omega buffers
-	cl_ulong omega_buffer_size 	= 512 * 40000 * sizeof(float);		// # work items is unknown here, see omega2
-	cl_ulong LRkm_buffer_size 	= 2 * GPU_BLOCK_MC * sizeof(float);
-	cl_ulong TS_buffer_size 	= omega_buffer_size;
+    // cl_ulong omega_buffer_size 	= 512 * 40000 * sizeof(float);		// # work items is unknown here, see omega2
+	// cl_ulong LRkm_buffer_size 	= 2 * GPU_BLOCK_MC * sizeof(float);
+	// cl_ulong TS_buffer_size 	= omega_buffer_size;
+
+    // Divide remaining memory correctly over needed buffers
+    cl_ulong remain = global_mem - total;
+
+    double omega_portion = 34.0128, LRkm_portion = 5314.5, TS_portion = 1.0629;
+
+	cl_ulong omega_buffer_size 	= ((cl_ulong)(remain / omega_portion) / 256) * 256;		// # work items is unknown here, see omega2
+	cl_ulong LRkm_buffer_size 	= ((cl_ulong)(remain / LRkm_portion) / 256) * 256;
+	cl_ulong TS_buffer_size 	= ((cl_ulong)(remain / TS_portion) / 256) * 256;
+
 	total += 2 * omega_buffer_size + 2 * LRkm_buffer_size + TS_buffer_size;
 
     if(total > global_mem)
@@ -1465,6 +1485,10 @@ void gpu_init(void)
         printf("some buffer is too big!\n");
         exit(1);
     }
+
+    max_omegas = omega_buffer_size / sizeof(float);
+    max_LRkm = LRkm_buffer_size / sizeof(float);
+    max_TS = TS_buffer_size / sizeof(float);
 
     // NOTE: this is what's being passed in for the other GEMM implementation
     rs_c=1;
