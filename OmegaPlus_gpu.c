@@ -1464,9 +1464,9 @@ void gpu_init(void)
 
     double omega_portion = 34.0128, LRkm_portion = 5314.5, TS_portion = 1.0629;
 
-	cl_ulong omega_buffer_size 	= ((cl_ulong)(remain / omega_portion) / 256) * 256;		// # work items is unknown here, see omega2
-	cl_ulong LRkm_buffer_size 	= ((cl_ulong)(remain / LRkm_portion) / 256) * 256;
-	cl_ulong TS_buffer_size 	= ((cl_ulong)(remain / TS_portion) / 256) * 256;
+	cl_ulong omega_buffer_size 	= min(max_alloc, ((cl_ulong)(remain / omega_portion) / 256) * 256);		// # work items is unknown here, see omega2
+	cl_ulong LRkm_buffer_size 	= min(max_alloc, ((cl_ulong)(remain / LRkm_portion) / 256) * 256);
+	cl_ulong TS_buffer_size 	= min(max_alloc, ((cl_ulong)(remain / TS_portion) / 256) * 256);
 
 	total += 2 * omega_buffer_size + 2 * LRkm_buffer_size + TS_buffer_size;
 
