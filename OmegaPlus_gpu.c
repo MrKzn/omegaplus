@@ -37,6 +37,13 @@ inline int max(int a, int b)
   return b;
 }
 
+inline cl_ulong minlu(cl_ulong a, cl_ulong b)
+{
+    if(a < b)
+        return a;
+    return b;
+}
+
 /*   ---  GPU Omega functions  ---   */
 void computeOmega_gpuF1(float * omegas, float * LR, int * km, float * T, int in_out_cnt, int inner_cnt, unsigned int total){
 	// static cl_ulong p_start, p_end, p_total=0;
@@ -189,7 +196,7 @@ void computeOmegaValues_gpuF (omega_struct * omega, int omegaIndex, cor_t ** cor
 
 	unsigned int * indexes = NULL, index=0;
 	static int * km = NULL;
-	int i, j, maxLeftIndex=0, maxRightIndex=0, inner_work, outer_work, work_groups,
+	int i, j, maxLeftIndex=0, maxRightIndex=0, inner_work, outer_work,
 	
 	total, work_total, outer_cnt, inner_cnt, in_out_cnt, inner_i=0, Lk_i=0, Rm_i=0,
 	
@@ -1464,9 +1471,9 @@ void gpu_init(void)
 
     double omega_portion = 34.0128, LRkm_portion = 5314.5, TS_portion = 1.0629;
 
-	cl_ulong omega_buffer_size 	= min(max_alloc, ((cl_ulong)(remain / omega_portion) / 256) * 256);		// # work items is unknown here, see omega2
-	cl_ulong LRkm_buffer_size 	= min(max_alloc, ((cl_ulong)(remain / LRkm_portion) / 256) * 256);
-	cl_ulong TS_buffer_size 	= min(max_alloc, ((cl_ulong)(remain / TS_portion) / 256) * 256);
+	cl_ulong omega_buffer_size 	= minlu(max_alloc, ((cl_ulong)(remain / omega_portion) / 256) * 256);		// # work items is unknown here, see omega2
+	cl_ulong LRkm_buffer_size 	= minlu(max_alloc, ((cl_ulong)(remain / LRkm_portion) / 256) * 256);
+	cl_ulong TS_buffer_size 	= minlu(max_alloc, ((cl_ulong)(remain / TS_portion) / 256) * 256);
 
 	total += 2 * omega_buffer_size + 2 * LRkm_buffer_size + TS_buffer_size;
 
