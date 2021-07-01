@@ -184,7 +184,7 @@ void mapCharToCodeDNA (unsigned int * codeA, unsigned int * codeC, unsigned int 
 }
 
 
-void compressAlignmentBIN(alignment_struct *alignment)
+void compressAlignmentBIN(alignment_struct *alignment, unsigned int * BCtable)
 {
 	int i,j,l,m,
             compLimit,
@@ -194,12 +194,16 @@ void compressAlignmentBIN(alignment_struct *alignment)
 		     tmpValid, 
                      compEntry, 
                      compValid; 
+
+	// qLD ADDED
+	unsigned int accum;
 	
 	initializeAlignmentCompression (alignment);
 	
 	m=0;
 	for(i=0;i<alignment->segsites;i++)
 	{		
+		accum = 0;
 		l=0;
 
 		compEntry = 0u;
@@ -225,6 +229,10 @@ void compressAlignmentBIN(alignment_struct *alignment)
 				l=0;
 			
 				alignment->compressedArrays[0][m]=compEntry; // Vector of Ones
+				#ifdef _SHARED
+				// qLD ADDED
+				accum += precomputed16_bitcount (compEntry);
+				#endif
 				
 				if(alignment->states==3)
 					alignment->compressedArrays[1][m]=compValid; // Valid Vector
@@ -241,6 +249,7 @@ void compressAlignmentBIN(alignment_struct *alignment)
 					compLimit = compLeft;		
 			}			
 		}
+		BCtable[i] = accum;
 	}
 }
 
@@ -323,13 +332,13 @@ void compressAlignmentDNA(alignment_struct *alignment)
 	}
 }
 
-void compressAlignment(alignment_struct *alignment)
+void compressAlignment(alignment_struct *alignment, unsigned int * BCtable)
 {
 	switch(alignment->states)
 	{
 		case BINARY:
 		case BINARY_WITH_GAPS:
-			compressAlignmentBIN(alignment);
+			compressAlignmentBIN(alignment, BCtable);
 			break;
 		case DNA:
 		case DNA_WITH_GAPS:

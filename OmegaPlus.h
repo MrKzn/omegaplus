@@ -293,7 +293,7 @@ int findFirstAlignment(alignment_struct *alignment, FILE *fp, FILE *fpInfo,int f
 int findNextAlignment(FILE *fp, int fileFormat);
 void freeAlignment(alignment_struct *alignment, int matrixSizeMax);
 int readAlignment(FILE *fp, alignment_struct *alignment, int imputeG, int imputeN, int binary, int format, FILE * fpInfo, int filterOut, double maf, int readAlignment);
-void compressAlignment(alignment_struct *alignment);
+void compressAlignment(alignment_struct *alignment, unsigned int * BCtable);
 #ifdef _USE_PTHREADS
 void startThreadOperations(threadData_t * threadData, int operation);
 void correlationThread(threadData_t * currentThread);
@@ -442,9 +442,11 @@ void gpu_init(void);
 
 void gpu_release(void);
 
-uint32_t * correlate_gpu(uint32_t* tableA,
-               int tableAsize,
-               int compressed_snp_size);
+float * correlate_gpu(uint32_t * tableA,
+				unsigned int * tableA_bitcount,
+				int tableAsize,
+				int compressed_snp_size,
+				int snp_size);
 
 void printCLErr(cl_int err,int line, char* file);
 
@@ -477,7 +479,7 @@ void mlt_gpu(unsigned int m,
          inputDataType_x32 *A,
          inputDataType_x32* tableA);
 
-void computeCorrelationMatrixPairwiseGPU(alignment_struct * alignment, omega_struct * omega, int omegaIndex, int firstRowIndex, void * threadData, cor_t ** myCorrelationMatrix, char * lookuptable, uint32_t * qLD_res);
+void computeCorrelationMatrixPairwiseGPU(alignment_struct * alignment, omega_struct * omega, int omegaIndex, int firstRowIndex, void * threadData, cor_t ** myCorrelationMatrix, char * lookuptable, float * qLD_res);
 
 void computeOmegas_gpu (alignment_struct * alignment, omega_struct * omega, int omegaIndex, void * threadData, cor_t ** correlationMatrix);
 

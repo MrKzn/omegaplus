@@ -894,7 +894,7 @@ int main(int argc, char** argv)
 	omega_struct * omega;
 
 	// qLD GPU calculations
-	// uint32_t * qLD_res=NULL;
+	float * qLD_res = NULL;
 	// Omega GPU calculations
 	int gpu=0;
 	
@@ -1055,9 +1055,10 @@ int main(int argc, char** argv)
 				fprintf(fpReport, "\n");
 		}
 
+		// qLD added
+		unsigned int * BCtable = (unsigned int *)malloc(alignment->segsites * sizeof(unsigned int));
 
-
-		    compressAlignment(alignment);		
+		    compressAlignment(alignment, BCtable);
 		    
 		    if (fileFormat==MS_FORMAT || fileFormat == MACS_FORMAT)
 		      checkSNIPPositions(fpWarnings, alignment, alignmentIndex);
@@ -1675,9 +1676,8 @@ int main(int argc, char** argv)
 #else
 
 			// qLD
-			uint32_t * qLD_res=NULL;
 			if(gpu)
-				qLD_res = correlate_gpu(alignment->compressedArrays[0],alignment->segsites,alignment->siteSize);
+				qLD_res = correlate_gpu(alignment->compressedArrays[0], BCtable, alignment->segsites, alignment->siteSize, alignment->sequences);
 			
 		    alignment->correlationMatrix = createCorrelationMatrix(alignment->correlationMatrix,matrixSizeMax);
 		    
@@ -1765,6 +1765,7 @@ int main(int argc, char** argv)
 	free(alignment);
 	free(omega);
 	free(recfile);
+	free(qLD_res);
 	
 	if(fpIn!=NULL)
 		fclose(fpIn);

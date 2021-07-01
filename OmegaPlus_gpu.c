@@ -721,9 +721,44 @@ void mlt_gpu(unsigned int m,
     }
 }
 
-uint32_t * correlate_gpu(uint32_t* tableA,
-               int tableAsize,
-               int compressed_snp_size)
+void get_pairwise_ld_score_gpu(unsigned int * tableA_bitcount,
+        unsigned int * tableB_bitcount,
+        inputDataType_x32 * C,
+        int tableAsize,
+        int tableBsize,
+        int snp_size,
+        float** results)
+{
+    int i,j;
+    float val_1, val_2, val_3;
+    for(i=0;i<tableBsize;i++)
+    {
+        for(j=0;j<tableAsize;j++)
+        {
+            (*results)[i*tableAsize+j]=0.0f;
+            if(tableB_bitcount[i] != 0 && tableA_bitcount[j] != 0)
+            {
+                val_1=((float)tableA_bitcount[j])/snp_size;
+                val_2=((float)tableB_bitcount[i])/snp_size;
+                val_3=((float)C[i*tableAsize+j])/snp_size;
+                (*results)[i*tableAsize+j]=((val_3-val_1*val_2)*(val_3-val_1*val_2));
+                (*results)[i*tableAsize+j] /= (val_1*val_2*(1.0-val_1)*(1.0-val_2));
+
+                if((*results)[i*tableAsize+j]>1.0001)
+                {
+                    (*results)[i*tableAsize+j]=123.456000000;
+                }
+            }
+        }
+    }
+    fflush(stderr);
+}
+
+float * correlate_gpu(uint32_t * tableA,
+				unsigned int * tableA_bitcount,
+				int tableAsize,
+				int compressed_snp_size,
+				int snp_size)
 {
     int m=tableAsize, n=tableAsize, k=compressed_snp_size; 
     long long int i;
@@ -745,9 +780,13 @@ uint32_t * correlate_gpu(uint32_t* tableA,
             tableCsize*sizeof(inputDataType_x32)%4096);
     assert(!pm);
 
+    float * results = (float*)malloc(tableCsize*sizeof(float));
+    assert(results);
+
     for(i=0;i<tableCsize;i++)
     {
         ((inputDataType_x32*)C)[i]=0;
+        results[i]=0;
     }
 
     mlt_gpu(m, k, A, tableA);
@@ -764,304 +803,24 @@ uint32_t * correlate_gpu(uint32_t* tableA,
             Ac_pack_v,
             Bc_pack_v);
 
-    // int l,o;
-	// unsigned int row=0,col=0,tx=0;
-	
-	// for(o=0;o<m/group_size;o++){
-	// 	tx=o*group_size;
-	// 	for(i=1;i<group_size;i++) // i is row indexing
-	// 	{
-	// 		row = (i+tx)*m;
-	// 		for(l=i-1;l>=0;l--){ // l is col indexing
-	// 			col = l+tx;
-	// 			if(((uint32_t*)C)[row+col]>0)
-	// 				printf("qLD row: %llu, col: %u, val: %u\n",(i+tx),col,((uint32_t*)C)[row+col]);
-	// 		}
-	// 	}
-	// }
+    get_pairwise_ld_score_gpu(tableA_bitcount,
+            tableA_bitcount,
+            C,
+            m,
+            n,
+            snp_size,
+            &results);
 
 	free(Ac_pack_v);
 	free(Bc_pack_v);
     free(A);
-    // free(C);
+    free(C);
 
-	return ((uint32_t*)C);
+	return results;
 }
 
 /*   ---  GPU Correlation functions  ---   */
-unsigned int precomputed16_bitcountGPU (unsigned int n)
-{
-	/* works only for 32-bit unsigned int*/	    
-	return bits_in_16bits [n         & 0xffffu]	
-	    +  bits_in_16bits [(n >> 16) & 0xffffu] ;
-}
-
-cor_t computeCorrelationValueBIN_RSQUAREGPU(int sequences, unsigned int * accumXvec)
-{	
-	cor_t result;
-	cor_t sequencesTotal = (cor_t) sequences;
-
-	if (sequencesTotal==0)
-		return 0.;
-
-	cor_t numerator=0.0, 
-              denominator=0.0;
-
-	cor_t denomA = (cor_t)accumXvec[0]/sequencesTotal;
-	cor_t denomB = (cor_t)accumXvec[1]/sequencesTotal;
-	cor_t denomC = (cor_t)accumXvec[2]/sequencesTotal;
-	cor_t denomD = (cor_t)accumXvec[3]/sequencesTotal;
-
-	denominator = denomA * denomB * denomC * denomD;
-
-	if (denominator==0.0)
-		return 0.0;
-
-	numerator  = ((cor_t)accumXvec[4])/sequencesTotal;
-	numerator -= ((cor_t)accumXvec[1]/(cor_t)sequences) * ((cor_t)accumXvec[3]/(cor_t)sequences);
-	numerator *= numerator;
-
-	result = (sequences * numerator) /denominator;
-
-	return result;
-}
-
-cor_t computeCorrelationValueBIN_DOMGPU(int sequences, unsigned int * accumXvec)
-{
-	cor_t result;
-
-	cor_t m1  = (cor_t)accumXvec[1];
-	cor_t m11 = (cor_t)accumXvec[4];
-	cor_t m12 = m1 - m11;
-	cor_t m2  = (cor_t)accumXvec[3];
-	cor_t m21 = m2 - m11;
-	cor_t m22 = (cor_t)accumXvec[0] - m21;
-
-	if(!(accumXvec[2]-m12==m22))	
-	{
-		printf("Equality Failed! (%f - %f)\n",accumXvec[2]-m12,m22);
-		assert(accumXvec[2]-m12==m22);
-	}
-
-	m11/=sequences;
-	m22/=sequences;
-	m12/=sequences;
-	m21/=sequences;
-	m1/=sequences;
-	m2/=sequences;
-
-	if ( ( (m1 >= 0.5) && (m2 >= 0.5) ) || 	( (m1 < 0.5) && (m2 < 0.5 ) ) )
-		result =  m11*m22 - m12*m21;
-	else if( ( (m1 < 0.5) && (m2 >= 0.5 ) )|| ( (m1 >= 0.5) && (m2 < 0.5) ) )
-		result =  m21*m12 - m11*m22;
-	else{
-		fprintf(stderr, "m1: %e, m2: %e, m11: %e, m12: %e, m21: %e, m22: %e\n", m1, m2, m11, m12, m21, m22);
-		assert(0);
-	}
-
-	return result;
-}
-
-cor_t computeCorrelationValueBIN_JUSTDGPU(int sequences, unsigned int * accumXvec)
-{
-	cor_t result;
-
-	cor_t m1  = (cor_t)accumXvec[1];
-	cor_t m11 = (cor_t)accumXvec[4];
-	cor_t m12 = m1 - m11;
-	cor_t m2  = (cor_t)accumXvec[3];
-	cor_t m21 = m2 - m11;
-	cor_t m22 = (cor_t)accumXvec[0] - m21;
-
-	if(!(accumXvec[2]-m12==m22))	
-	{
-		printf("Equality Failed! (%f - %f)\n",accumXvec[2]-m12,m22);
-		assert(accumXvec[2]-m12==m22);
-	}
-
-	m11/=sequences;
-	m22/=sequences;
-	m12/=sequences;
-	m21/=sequences;
-	m1/=sequences;
-	m2/=sequences;
-
-	result = m11 - m1*m2;
-
-	return result;
-}
-
-cor_t computeCorrelationValueBIN_DOM2GPU(int sequences, unsigned int * accumXvec)
-{
-	cor_t result;
-
-	cor_t m1  = (cor_t)accumXvec[1];
-	cor_t m11 = (cor_t)accumXvec[4];
-	cor_t m12 = m1 - m11;
-	cor_t m2  = (cor_t)accumXvec[3];
-	cor_t m21 = m2 - m11;
-	cor_t m22 = (cor_t)accumXvec[0] - m21;
-
-	if(!(accumXvec[2]-m12==m22))	
-	{
-		printf("Equality Failed! (%f - %f)\n",accumXvec[2]-m12,m22);
-		assert(accumXvec[2]-m12==m22);
-	}
-
-	m11/=sequences;
-	m22/=sequences;
-	m12/=sequences;
-	m21/=sequences;
-	m1/=sequences;
-	m2/=sequences;
-
-	if ( ( (m1 >= 0.5) && (m2 >= 0.5) ) || 	( (m1 < 0.5) && (m2 < 0.5 ) ) )
-		result =  m11*m22 - m12*m21;
-	else if( ( (m1 < 0.5) && (m2 >= 0.5 ) )|| ( (m1 >= 0.5) && (m2 < 0.5) ) )
-		result =  m21*m12 - m11*m22;
-	else{
-		fprintf(stderr, "m1: %e, m2: %e, m11: %e, m12: %e, m21: %e, m22: %e\n", m1, m2, m11, m12, m21, m22);
-		assert(0);
-	}
-
-  	cor_t denom = (m1*m2*(1.-m1)*(1.-m2));
-
-  	result = abs(result)/denom;
-
-	return result;
-}
-
-cor_t computeCorrelationValueBINGPU(int sequences, unsigned int * accumXvec)
-{
-	if(linkage_disequilibrium == RSQUARE)
-		return computeCorrelationValueBIN_RSQUAREGPU(sequences, accumXvec);
-
-	if(linkage_disequilibrium == DOM)
-		return computeCorrelationValueBIN_DOMGPU(sequences, accumXvec);
-
-	if(linkage_disequilibrium == ABSDOM)
-		return ABS(computeCorrelationValueBIN_DOMGPU(sequences, accumXvec));
-
-	if(linkage_disequilibrium == JUSTD)
-		return computeCorrelationValueBIN_JUSTDGPU(sequences, accumXvec);
-
-	if(linkage_disequilibrium == ABSD)
-		return ABS(computeCorrelationValueBIN_JUSTDGPU(sequences, accumXvec));
-
-	if(linkage_disequilibrium == ABSDOM2)
-		return ABS(computeCorrelationValueBIN_DOM2GPU(sequences, accumXvec));
-
-	assert(linkage_disequilibrium==999);
-
-	return 0.0;
-}
-
-void count01CombsGPU (int total, unsigned int inputL, unsigned int inputR, unsigned int * accumXvec)
-{
-	int limit=ENTRIES_PER_INT;
-	
-	if (total<limit)
-		limit = total;
-
-	int t1 = precomputed16_bitcountGPU (inputL);
-	int t2 = precomputed16_bitcountGPU (inputR);
-
-	// unsigned int combAND = inputL & inputR;
-
-	accumXvec[1] += t1;  
-	accumXvec[3] += t2;
-
-	accumXvec[0] += limit - t1;
-	accumXvec[2] += limit - t2;
-
-	//accumXvec[4] +=  precomputed16_bitcountGPU (combAND);	
-}
-
-int count01GAPCombsGPU (unsigned int inputL, unsigned int inputR, unsigned int inputLVld, unsigned int inputRVld, unsigned int * accumXvec)
-{
-	
-	unsigned int validComb = inputLVld & inputRVld;	
-	unsigned int inputUL = inputL & validComb;
-	unsigned int inputUR = inputR & validComb;	
-
-	int validSampleSize = precomputed16_bitcountGPU (validComb);
-	
-	int t1 = precomputed16_bitcountGPU (inputUL); 
-	int t2 = precomputed16_bitcountGPU (inputUR); 
-
-	// unsigned int combAND = inputUL&inputUR;
-
-	accumXvec[1] += t1;  
-	accumXvec[3] += t2;
-
-	accumXvec[0] += validSampleSize - t1;
-	accumXvec[2] += validSampleSize - t2;
-
-	//accumXvec[4] +=  precomputed16_bitcountGPU (combAND);
-
-	return validSampleSize;	
-}
-
-cor_t computePairwiseCorrelationBINGPU (alignment_struct * alignment, int s_i, int s_j, uint32_t * qLD_res)
-{	
-	int i, total;
-	unsigned int accumXvec[5];
-	unsigned int s_i_val, s_j_val;
-
-	total = alignment->sequences;
-
-	for(i=0;i<5;i++)
-		accumXvec[i]=0;
-	
-	for(i=0;i<alignment->siteSize;i++)
-	{
-		s_i_val = alignment->compressedArrays[0][s_i*alignment->siteSize+i];
-		s_j_val = alignment->compressedArrays[0][s_j*alignment->siteSize+i];
-
-		count01CombsGPU (total, s_i_val, s_j_val, accumXvec);
-	
-		total -= ENTRIES_PER_INT;
-	}
-
-    // qLD matrix
-    accumXvec[4] = qLD_res[s_i*alignment->segsites+s_j];
-		
-	assert(accumXvec[0]+accumXvec[1]==alignment->sequences);
-	assert(accumXvec[2]+accumXvec[3]==alignment->sequences);	
-
-	return computeCorrelationValueBINGPU(alignment->sequences, accumXvec);	
-}
-
-float computePairwiseCorrelationBINGAPSGPU (alignment_struct * alignment, int s_i, int s_j, uint32_t * qLD_res)
-{
-	int i, sequences=0;
-	unsigned int accumXvec[5];
-	unsigned int s_i_val, s_j_val, s_i_vld, s_j_vld;
-
-	for(i=0;i<5;i++)
-		accumXvec[i]=0;
-	
-	for(i=0;i<alignment->siteSize;i++)
-	{
-		s_i_val = alignment->compressedArrays[0][s_i*alignment->siteSize+i];
-		s_j_val = alignment->compressedArrays[0][s_j*alignment->siteSize+i];
-
-		s_i_vld = alignment->compressedArrays[1][s_i*alignment->siteSize+i];
-		s_j_vld = alignment->compressedArrays[1][s_j*alignment->siteSize+i];
-
-		sequences += count01GAPCombsGPU (s_i_val, s_j_val, s_i_vld, s_j_vld, accumXvec);		
-	}
-
-    // qLD matrix
-    accumXvec[4] = qLD_res[s_i*alignment->segsites+s_j];
-	
-	assert(accumXvec[0]+accumXvec[1]==sequences);
-	assert(accumXvec[2]+accumXvec[3]==sequences);	
-
-	return computeCorrelationValueBINGPU(sequences, accumXvec);	
-}
-
-void computeCorrelationsBINGPU(alignment_struct * alignment, omega_struct * omega, int omegaIndex, int firstRow, uint32_t * qLD_res)
+void computeCorrelationsBINGPU(alignment_struct * alignment, omega_struct * omega, int omegaIndex, int firstRow, float * qLD_res)
 {
 	assert(omega[omegaIndex].rightIndex>=omega[omegaIndex].leftIndex);
 	
@@ -1079,12 +838,12 @@ void computeCorrelationsBINGPU(alignment_struct * alignment, omega_struct * omeg
 			s_i = i + omega[omegaIndex].leftIndex;
 			s_j = j + omega[omegaIndex].leftIndex;
 
-			alignment->correlationMatrix[i][j] = computePairwiseCorrelationBINGPU(alignment, s_i, s_j, qLD_res);
+            alignment->correlationMatrix[i][j] = qLD_res[s_i*alignment->segsites+s_j];
 		}
 	}	
 }
 
-void computeCorrelationsBINGAPSGPU(alignment_struct * alignment, omega_struct * omega, int omegaIndex, int firstRow, uint32_t * qLD_res)
+void computeCorrelationsBINGAPSGPU(alignment_struct * alignment, omega_struct * omega, int omegaIndex, int firstRow, float * qLD_res)
 {
 	assert(omega[omegaIndex].rightIndex>=omega[omegaIndex].leftIndex);
 	
@@ -1102,12 +861,12 @@ void computeCorrelationsBINGAPSGPU(alignment_struct * alignment, omega_struct * 
 			s_i = i + omega[omegaIndex].leftIndex;
 			s_j = j + omega[omegaIndex].leftIndex;
 
-			alignment->correlationMatrix[i][j] = computePairwiseCorrelationBINGAPSGPU(alignment, s_i, s_j, qLD_res);
+            alignment->correlationMatrix[i][j] = qLD_res[s_i*alignment->segsites+s_j];
 		}
 	}
 }
 
-void computeCorrelationMatrixPairwiseGPU(alignment_struct * alignment, omega_struct * omega, int omegaIndex, int firstRowIndex, void * threadData, cor_t ** myCorrelationMatrix, char * lookuptable, uint32_t * qLD_res)
+void computeCorrelationMatrixPairwiseGPU(alignment_struct * alignment, omega_struct * omega, int omegaIndex, int firstRowIndex, void * threadData, cor_t ** myCorrelationMatrix, char * lookuptable, float * qLD_res)
 {
 
 	if (firstRowIndex==-1)
@@ -1467,13 +1226,17 @@ void gpu_init(void)
 	// cl_ulong TS_buffer_size 	= omega_buffer_size;
 
     // Divide remaining memory correctly over needed buffers
-    cl_ulong remain = global_mem - total;
+    // cl_ulong remain = global_mem - total;       // Subtract some more bytes (whole mem cant be used)
+    cl_ulong remain = 512*41000*sizeof(float);
+    printf("remain: %lu\n",remain);
 
     double omega_portion = 34.0128, LRkm_portion = 5314.5, TS_portion = 1.0629;
 
 	cl_ulong omega_buffer_size 	= minlu(max_alloc, ((cl_ulong)(remain / omega_portion) / 256) * 256);		// # work items is unknown here, see omega2
 	cl_ulong LRkm_buffer_size 	= minlu(max_alloc, ((cl_ulong)(remain / LRkm_portion) / 256) * 256);
 	cl_ulong TS_buffer_size 	= minlu(max_alloc, ((cl_ulong)(remain / TS_portion) / 256) * 256);
+
+    printf("%lu\n",TS_buffer_size);
 
 	total += 2 * omega_buffer_size + 2 * LRkm_buffer_size + TS_buffer_size;
 
