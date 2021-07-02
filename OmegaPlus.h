@@ -284,7 +284,7 @@ void compute_bits_in_16bits(void);
 void compute_bits_in_16bitsLocal(char * bits_in_16bitsLocal);
 #endif
 void printHeading (FILE * fp);
-void computeCorrelationMatrixPairwise(alignment_struct * alignment, omega_struct * omega, int omegaIndex, int firstRowIndex, void * threadData, cor_t ** myCorrelationMatrix, char * lookuptable);
+void computeCorrelationMatrixPairwise(alignment_struct * alignment, omega_struct * omega, int omegaIndex, int firstRowIndex, void * threadData, cor_t ** myCorrelationMatrix, char * lookuptable, float * qLD_res);
 void applyCorrelationMatrixAdditions (omega_struct * omega, int omegaIndex, int firstRowIndex, cor_t ** correlationMatrix);
 void overlapCorrelationMatrixAdditions (alignment_struct * alignment, omega_struct * omega, int lvw_i, int cvw_i, int * firstRowToCopy, int * firstRowToCompute, int * firstRowToAdd);
 void shiftCorrelationMatrixValues (omega_struct * omega, int lvw_i, int cvw_i, int firstRowToCopy, cor_t ** correlationMatrix);
@@ -293,7 +293,7 @@ int findFirstAlignment(alignment_struct *alignment, FILE *fp, FILE *fpInfo,int f
 int findNextAlignment(FILE *fp, int fileFormat);
 void freeAlignment(alignment_struct *alignment, int matrixSizeMax);
 int readAlignment(FILE *fp, alignment_struct *alignment, int imputeG, int imputeN, int binary, int format, FILE * fpInfo, int filterOut, double maf, int readAlignment);
-void compressAlignment(alignment_struct *alignment);
+void compressAlignment(alignment_struct *alignment, unsigned int * BCtable);
 #ifdef _USE_PTHREADS
 void startThreadOperations(threadData_t * threadData, int operation);
 void correlationThread(threadData_t * currentThread);
@@ -322,7 +322,7 @@ float get_Mem_GroupSize();
 void update_workgroup_map_ptr(float *** workgroup_map_ptr, int start, int finish, int first_group_index);
 void update_workgroup_map_partial_ptr(float *** workgroup_map_ptr, int start, int finish, int prev_start, int prev_finish, int first_group_index);
 void dp_on_tiles_overlap_ptr (int first_DP_tile, int last_DP_tile, float *** workgroup_map_ptr, float *** overlap_workgroup_map_ptr, int overlap, int first_group_index, alignment_struct * alignment, int leftSNPindex, int rightSNPindex, uint32_t * qLD_res);
-unsigned int precomputed16_bitcount (unsigned int n);
+
 cor_t computeCorrelationValueBIN(int sequences, unsigned int * accumXvec);
 cor_t computeCorrelationValueDNA(int sequences, cor_t pairwiseCorrelationMatrix[4][4], unsigned int * valid);
 void count01Combs (int total, unsigned int inputL, unsigned int inputR, unsigned int * accumXvec);
@@ -332,6 +332,8 @@ int max(int a, int b);
 int min(int a, int b);
 float computeOmega (float LS, float RS, float TS, int k, int ksel2, int m, int msel2);
 #endif
+
+unsigned int precomputed16_bitcount (unsigned int n);
 
 // General ADDED
 double gettime(void);
@@ -436,8 +438,8 @@ unsigned int cs_c;
 // #define OMEGA_NAME "omega14"
 // #define OMEGA_NAME "omega15"
 // #define OMEGA_NAME "omega16"
-// #define OMEGA_NAME "omega17"
-#define OMEGA_NAME "omega18"
+#define OMEGA_NAME "omega17"
+// #define OMEGA_NAME "omega18"
 // #define OMEGA_NAME "omegatest2"
 #define OMEGA_NAME2 ""
 // #define OMEGA_NAME2 "omega10"
@@ -466,41 +468,13 @@ void gpu_init(void);
 
 void gpu_release(void);
 
-uint32_t * correlate_gpu(uint32_t* tableA,
-               int tableAsize,
-               int compressed_snp_size,
-			   int group_size);
+float * correlate_gpu(uint32_t* tableA,
+				unsigned int *tableA_bitcount,
+				int tableAsize,
+				int compressed_snp_size,
+				int snp_size);
 
 void printCLErr(cl_int err,int line, char* file);
-
-void GPU_Pack_A(inputDataType_x32 *A,
-                unsigned int lda,
-                DOUBLE *A_pack,
-                unsigned int m,
-                unsigned int k);
-
-void GPU_Pack_B(inputDataType_x32 *B,
-                unsigned int ldb,
-                DOUBLE *B_pack,
-                unsigned int k,
-                unsigned int n);
-
-void gpu_gemm(unsigned int m,
-              unsigned int n,
-              unsigned int k,
-              inputDataType_x32 *A,
-              unsigned int lda,
-              inputDataType_x32 *B,
-              unsigned int ldb,
-              inputDataType_x32 * C,
-              unsigned int ldc,
-              void * Ac_pack_v,
-              void * Bc_pack_v);
-
-void mlt_gpu(unsigned int m,
-         unsigned int k,
-         inputDataType_x32 *A,
-         inputDataType_x32* tableA);
 
 void test_gpu (omega_struct * omega, int omegaIndex, cor_t ** correlationMatrix, void * threadData);
 

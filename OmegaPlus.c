@@ -893,7 +893,8 @@ int main(int argc, char** argv)
 
 	omega_struct * omega;
 
-	// uint32_t * qLD_res=NULL;
+	// qLD variable
+	float * qLD_res = NULL;
 	
    	commandLineParser(argc, argv, inputFileName, &grid, &alignmentLength, &minw, &maxw, recfile, 
 			  &minsnps, &imputeN, &imputeG, &binary, &seed, &fileFormat, &threads, &resultType, &ld, &borderTol, &filterOut, &noSeparation, sampleVCFfileName,
@@ -1052,9 +1053,10 @@ int main(int argc, char** argv)
 				fprintf(fpReport, "\n");
 		}
 
+		// qLD added
+		unsigned int * BCtable = (unsigned int *)malloc(alignment->segsites * sizeof(unsigned int));
 
-
-		    compressAlignment(alignment);		
+		    compressAlignment(alignment, BCtable);		
 		    
 		    if (fileFormat==MS_FORMAT || fileFormat == MACS_FORMAT)
 		      checkSNIPPositions(fpWarnings, alignment, alignmentIndex);
@@ -1670,7 +1672,9 @@ int main(int argc, char** argv)
 //		free(total_omega_values_time);
 		free(genGridList);
 #else
-		    
+
+			qLD_res = correlate_gpu(alignment->compressedArrays[0], BCtable, alignment->segsites, alignment->siteSize, alignment->sequences);
+			
 		    alignment->correlationMatrix = createCorrelationMatrix(alignment->correlationMatrix,matrixSizeMax);
 		    lvw_i=-1;
 
@@ -1693,7 +1697,7 @@ int main(int argc, char** argv)
 					
 					shiftCorrelationMatrixValues (omega, lvw_i, cvw_i, firstRowToCopy, alignment->correlationMatrix);
 
-					computeCorrelationMatrixPairwise (alignment, omega, cvw_i, firstRowToCompute, functionData, NULL,NULL);					
+					computeCorrelationMatrixPairwise (alignment, omega, cvw_i, firstRowToCompute, functionData, NULL,NULL, qLD_res);					
 
 					applyCorrelationMatrixAdditions (omega, cvw_i,firstRowToAdd,alignment->correlationMatrix);
 
@@ -1712,8 +1716,8 @@ int main(int argc, char** argv)
 						// computeOmegaValues_gpu4(omega, cvw_i, alignment->correlationMatrix, NULL, omegas, LSs, RSs, TSs, ks, ms);
 					// }
 					time3 = gettime();
-					// printf("%lf\n",time3-time2);
-					time4 += time3 - time2;
+					printf("%lf\n",time3-time2);
+					// time4 += time3 - time2;
 					// printf("Compute: %f\n",(time3-time2)/iter);
 
 					// int outer_cnt = omega[cvw_i].leftminIndex - omega[cvw_i].leftIndex - omega[cvw_i].leftIndex - omega[cvw_i].leftIndex + 1;
@@ -1743,7 +1747,7 @@ int main(int argc, char** argv)
 			// time2 = gettime();
 			// computeOmegaValues_gpu3 (omega, alignment->correlationMatrix, NULL, indexes, cnt);
 			// time4 = gettime() - time2;
-			printf("Compute: %f\n",time4);
+			// printf("Compute: %f\n",time4);
 #endif		    
 #endif
 
@@ -1777,6 +1781,7 @@ int main(int argc, char** argv)
 
 	// ifdef GPU?? if(gpu)??
 	gpu_release();
+	free(qLD_res);
 
 #ifdef _USE_PTHREADS
 #ifndef _USE_PTHREADS_MEMINT

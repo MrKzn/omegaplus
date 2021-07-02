@@ -876,11 +876,13 @@ void computeOmega_gpu3(float * omegas, float * LR, int * km, float * TSs, int in
 			1, &events[1], NULL
 			);
 	printCLErr(err,__LINE__,__FILE__);
+
+	// clFinish(io_queue);
 }
 
 void computeOmegaValues_gpu3 (omega_struct * omega, int omegaIndex, cor_t ** correlationMatrix, void * threadData)
 {
-	static double mtime0, mtime1, mtimetot = 0;
+	// static double mtime0, mtime1, mtimetot = 0;
 	float tmpW, maxW=0.0;
 	static float * omegas = NULL, * LR = NULL, * TSs = NULL;
 
@@ -921,11 +923,11 @@ void computeOmegaValues_gpu3 (omega_struct * omega, int omegaIndex, cor_t ** cor
 
 		km[Lk_i] = omegaSNIPIndex - i + 1;							// ks
 
-		if(borderTol > 0)	// Not implemented
-		{
-			int leftSNPs = omegaSNIPIndex - i + 1;
-			printf("Left: %d\n",leftSNPs);
-		}
+		// if(borderTol > 0)	// Not implemented
+		// {
+		// 	int leftSNPs = omegaSNIPIndex - i + 1;
+		// 	printf("Left: %d\n",leftSNPs);
+		// }
 		for(j=rightMinIndex;j<=rightMaxIndex;j++) // Right Side
 		{
 			if(!(Lk_i-inner_cnt))
@@ -943,11 +945,11 @@ void computeOmegaValues_gpu3 (omega_struct * omega, int omegaIndex, cor_t ** cor
 		Lk_i++;
 	}
 
-	mtime0 = gettime();
+	// mtime0 = gettime();
 	computeOmega_gpu3(omegas, LR, km, TSs, in_out_cnt, inner_cnt, total);
-	mtime1 = gettime();
-	mtimetot = mtime1 - mtime0;
-	printf("%f\n",mtimetot);
+	// mtime1 = gettime();
+	// mtimetot = mtime1 - mtime0;
+	// printf("%f\n",mtimetot);
 
 	for(i=0;i<total;i++)
 	{
@@ -973,6 +975,7 @@ void computeOmegaValues_gpu3 (omega_struct * omega, int omegaIndex, cor_t ** cor
 	free(LR);
 	free(km);
 	free(TSs);
+	clFinish(io_queue);
 }
 
 void computeOmega_gpu4(float * maxW, unsigned int * maxI, float * LRkm, float * TSs, int in_out_cnt, int inner_cnt, unsigned int total){
@@ -2174,9 +2177,9 @@ void computeOmegaValues_gpu13 (omega_struct * omega, int omegaIndex, cor_t ** co
 
 	unsigned int * indexes = NULL, index = 0;
 	static int * km = NULL;
-	int i, j, l, maxLeftIndex=0, maxRightIndex=0, mult, iter, inner_work, outer_work, 
+	int i, j, maxLeftIndex=0, maxRightIndex=0, mult, iter, inner_work, outer_work, 
 	
-	work_total, outer_cnt, inner_cnt, in_out_cnt, inner_i=0, Lk_i=0, Rm_i, T_i=0,
+	work_total, outer_cnt, inner_cnt, in_out_cnt, inner_i=0, Lk_i=0, Rm_i,
 	
 	omegaSNIPIndex = omega[omegaIndex].omegaPos - omega[omegaIndex].leftIndex,
 
@@ -3115,7 +3118,7 @@ void computeOmega_gpu17(float * omegas, unsigned int * indexes, float * LR, int 
     //                         &p_end, NULL);
 	// printCLErr(err,__LINE__,__FILE__);
 
-	// p_total += p_end - p_start;
+	// p_total = p_end - p_start;
 
 	// printf("%lu\n",p_total);
 
@@ -3124,6 +3127,7 @@ void computeOmega_gpu17(float * omegas, unsigned int * indexes, float * LR, int 
 			io_queue, omega_buffer, CL_FALSE, 0,
 			global*sizeof(float), omegas,
 			1, &events[1], NULL
+			// 0, NULL, NULL
 			);
 	printCLErr(err,__LINE__,__FILE__);
 
@@ -3172,6 +3176,7 @@ void computeOmegaValues_gpu17 (omega_struct * omega, int omegaIndex, cor_t ** co
 	work_groups = work_total / (group_size * group_size);
 	// int work_groups = outer_work / group_size * inner_gr;
 	work_items = group_size * work_groups;
+	// work_items = work_total / group_size;
 
 	omegas = malloc(sizeof(*omegas)*work_items);
 	indexes = malloc(sizeof(*indexes)*work_items);
@@ -3315,7 +3320,7 @@ void computeOmegaValues_gpu17 (omega_struct * omega, int omegaIndex, cor_t ** co
 	free(LR);
 	free(km);
 	free(T);
-	
+	clFinish(io_queue);
 	// VALIDATE
 	// free(omegasVal);
 	// getchar();
@@ -4083,6 +4088,440 @@ void maxOmegaResultReport (float * maxomegaRealPos, float * maxomegamaxValue, in
 }
 
 // GPU OpenCL stuff sequential
+static unsigned int round_up_mult(unsigned int x, unsigned int mult) {
+    return ((x + mult - 1) / mult) * mult;
+}
+
+void GPU_Pack_A(inputDataType_x32 *A,
+        unsigned int lda,
+        DOUBLE *A_pack,
+        unsigned int m,
+        unsigned int k)
+{
+    DOUBLE *A_pack_local;
+    unsigned int m_alg;
+    //#pragma omp  parallel for num_threads(*n_threads) private(A_pack_local)
+    //  #pragma omp parallel
+    //  #pragma omp single
+    ////    #pragma omp taskloop private(A_pack_local) num_tasks((*n_threads)) label(gemm_pack)
+    //  #pragma omp taskloop private(A_pack_local) grainsize(16) label(gemm_pack)
+    for(unsigned int ic=0;ic<m;ic+=GPU_BLOCK_MR)
+    {
+        A_pack_local=&A_pack[ic*k];
+        m_alg=min(GPU_BLOCK_MR,m-ic);
+        for(unsigned int pc=0;pc<k;pc++)
+        {
+            for(unsigned int ir=0;ir<m_alg;ir++)
+            {
+                A_pack_local[0]=A[(ic+ir)+pc*lda]; //auto xtypaei...
+                A_pack_local++;
+            }
+        }
+    }
+}
+
+void GPU_Pack_B(inputDataType_x32 *B,
+        unsigned int ldb,
+        DOUBLE *B_pack,
+        unsigned int k,
+        unsigned int n)
+{
+    DOUBLE *B_pack_local;
+    unsigned int n_alg;
+    //#pragma omp parallel for num_threads(*n_threads) private(B_pack_local)
+    //  #pragma omp parallel
+    //  #pragma omp single
+    ////    #pragma omp taskloop private(B_pack_local) num_tasks((*n_threads)) label(gemm_pack)
+    //  #pragma omp taskloop private(B_pack_local) grainsize(16) label(gemm_pack)
+    for(unsigned int jc=0;jc<n;jc+=GPU_BLOCK_NR)
+    {
+        B_pack_local=&B_pack[jc*k];
+        n_alg=min(GPU_BLOCK_NR,n-jc);
+        for(unsigned int pc=0;pc<k;pc++)
+        {
+            for(unsigned int jr=0;jr<n_alg;jr++)
+            {
+                B_pack_local[0]=B[pc+jc*ldb+jr*ldb];
+                B_pack_local++;
+            }
+        }
+    }
+}
+
+void gpu_gemm(unsigned int m,
+        unsigned int n,
+        unsigned int k,
+        inputDataType_x32 *A,
+        unsigned int lda,
+        inputDataType_x32 *B,
+        unsigned int ldb,
+        inputDataType_x32 *C,
+        unsigned int ldc,
+        void *Ac_pack_v,
+        void *Bc_pack_v)
+{
+    inputDataType_x32 *Ac, *Bc;
+    inputDataType_x32 *Cc;
+    //unsigned int *Ar, *Br;
+    //unsigned int *Cr;
+    //DOUBLE beta;
+    unsigned int i=0;
+    int err;
+    const unsigned int work_dim=2;
+    size_t local[work_dim];
+    local[0]=LOCAL_0;
+    local[1]=LOCAL_1;
+    size_t global[work_dim];
+
+    // // FOR TESTING WRITE BUFFERS
+    // int pm;     //return value used for assert
+    // void *A_test=NULL, *B_test=NULL;
+    // pm=posix_memalign(&(A_test), 4096,
+    //         GPU_BLOCK_MC*GPU_BLOCK_KC*sizeof(inputDataType_x32));
+    // assert(!pm);
+    // pm=posix_memalign(&(B_test), 4096,
+    //         GPU_BLOCK_MC*GPU_BLOCK_KC*sizeof(inputDataType_x32));
+    // assert(!pm);
+
+    for(unsigned int jc=0; jc<n; jc+=GPU_BLOCK_NC)
+    {
+        unsigned int n_alg=min(GPU_BLOCK_NC,n-jc);
+
+        for(i=0; i < 2; i++)
+        {
+            err=clSetKernelArg(kernels[i], 2, sizeof(inputDataType_x32), &n_alg);
+            printCLErr(err,__LINE__,__FILE__);
+        }
+
+        unsigned int pc_iter=0;
+        for(unsigned int pc=0; pc<k; pc+=GPU_BLOCK_KC)
+        {
+            unsigned int k_alg=min(GPU_BLOCK_KC,k-pc);
+
+            for(i=0; i < 2; i++)
+            {
+                err=clSetKernelArg(kernels[i], 0, sizeof(inputDataType_x32), &k_alg);
+                printCLErr(err,__LINE__,__FILE__);
+            }
+
+            //beta=*betap;
+
+            Bc=&B[pc+jc*ldb];
+            GPU_Pack_B(Bc, ldb, Bc_pack_v, k_alg, n_alg);
+
+            // TODO: double buffer B, don't just use b_buffers[0]
+            // printf("\nwriting b (k: %u, n: %u)\n", k_alg, n_alg);
+
+            // NOTE: getting CL_MEM_OBJECT_ALLOCATION_FAILURE when
+            // KC*NC*sizeof(uint) is too big... but not more than max_alloc??
+
+            // NOTE: don't have to use an event here since
+            //        io_queue is processed in-order
+            err=clEnqueueWriteBuffer(
+                    io_queue, b_buffers[pc_iter % 2], CL_FALSE, 0,
+                    k_alg*n_alg*sizeof(inputDataType_x32), Bc_pack_v,
+                    0, NULL, &events[(pc_iter % 2)*4]
+                    );
+            printCLErr(err,__LINE__,__FILE__);
+
+            // // ADDED
+            // // Check if "Bc_pack_v" is correctly written by reading from GPU
+            // err=clEnqueueReadBuffer(
+            //         io_queue, b_buffers[pc_iter % 2], CL_FALSE, 0,
+            //         k_alg*n_alg*sizeof(inputDataType_x32), B_test,
+            //         1, &events[(pc_iter % 2)*4], NULL
+            //         );
+            // printCLErr(err,__LINE__,__FILE__);
+
+            // for(int kl = 0; kl < k_alg*n_alg; kl++){
+            //     if(((uint32_t*)B_test)[kl] != ((uint32_t*)Bc_pack_v)[kl])
+            //         printf("FAULT\n");
+            // }
+
+            // printf("write done\n");
+            // set both kernels to use this iteration's b_buffer
+            for(i=0; i < 2; i++)
+            {
+                err=clSetKernelArg(
+                        kernels[i], 4, sizeof(cl_mem), &b_buffers[pc_iter % 2]
+                        );
+                printCLErr(err,__LINE__,__FILE__);
+            }
+
+            unsigned int ic_iter=0;
+            // write A, write C, kernel, read C (*2 for double buffer)
+
+            for(unsigned int ic=0; ic<m; ic+=GPU_BLOCK_MC)
+            {
+
+                unsigned int m_alg=min(GPU_BLOCK_MC,m-ic);
+
+                // m_alg is MC until it is the tail
+                // global is going to be derived from m_alg/n_alg.
+                // at - least as big as NR/MR (1 block).
+                // ceiling division
+                // TODO: figure this out for larger MR/NR
+                // global[0]=((max(m_alg, LOCAL_0) + LOCAL_0 - 1) / LOCAL_0) * LOCAL_0 / GPU_BLOCK_MR;
+                global[0]=round_up_mult(
+                        round_up_mult(m_alg, LOCAL_0), BLOCK_SIZE_X
+                        ) / BLOCK_SIZE_X * LOCAL_0;
+                // (((n_alg + LOCAL_0 - 1)/LOCAL_0) * LOCAL_0) * LOCAL_0 / BLOCK_SIZE_X;
+                global[1]=round_up_mult(
+                        round_up_mult(n_alg, LOCAL_1), BLOCK_SIZE_Y
+                        ) / BLOCK_SIZE_Y * LOCAL_1;
+
+                global[0]=max(global[0], local[0]);
+                global[1]=max(global[1], local[1]);
+
+                // global[0]=round_up_mult(
+                //   round_up_mult(n_alg, LOCAL_0) * LOCAL_0, BLOCK_SIZE_X
+                // ) / BLOCK_SIZE_X;
+                // // (((n_alg + LOCAL_0 - 1)/LOCAL_0) * LOCAL_0) * LOCAL_0 / BLOCK_SIZE_X;
+                // global[1]=round_up_mult(
+                //   round_up_mult(m_alg, LOCAL_1) * LOCAL_1, BLOCK_SIZE_Y
+                // ) / BLOCK_SIZE_Y;
+
+
+
+                //(((m_alg + LOCAL_1 - 1)/LOCAL_1) * LOCAL_1) * LOCAL_1 / BLOCK_SIZE_Y;
+                // global[1]=((max(n_alg, LOCAL_1) + LOCAL_1 - 1) / LOCAL_1) * LOCAL_1 / GPU_BLOCK_NR;
+
+                err=clSetKernelArg(
+                        kernels[ic_iter % 2], 1, sizeof(inputDataType_x32), &m_alg
+                        );
+                printCLErr(err,__LINE__,__FILE__);
+
+                Ac=&A[ic+pc*lda];
+                GPU_Pack_A(Ac,lda,Ac_pack_v,m_alg,k_alg);
+
+                Cc=&C[ic+jc*ldc];
+
+                for(i=0; i < n_alg; ++i)
+                {
+                    // for(i=0; i < GPU_BLOCK_NC; ++i) {
+                    err=clEnqueueWriteBuffer(
+                            io_queue, c_buffers[ic_iter % 2], CL_FALSE,
+                            i*cs_c*sizeof(inputDataType_x32),
+                            m_alg*sizeof(inputDataType_x32), &Cc[i*ldc],
+                            //GPU_BLOCK_MC*sizeof(unsigned int), &Cc[i*ldc],
+                            0, NULL, NULL
+                            );
+                    printCLErr(err,__LINE__,__FILE__);
+                }
+
+                // printf("writing a\n");
+
+                err=clEnqueueWriteBuffer(
+                        io_queue, a_buffers[ic_iter % 2], CL_FALSE, 0,
+                        m_alg*k_alg*sizeof(inputDataType_x32), Ac_pack_v,
+                        0, NULL, &events[(ic_iter % 2)*4]
+                        );
+                printCLErr(err,__LINE__,__FILE__);
+
+                // // ADDED
+                // // Check if "Ac_pack_v" is correctly written by reading from GPU
+                // err=clEnqueueReadBuffer(
+                //         io_queue, a_buffers[ic_iter % 2], CL_FALSE, 0,
+                //         k_alg*n_alg*sizeof(inputDataType_x32), A_test,
+                //         1, &events[(ic_iter % 2)*4], NULL
+                //         );
+                // printCLErr(err,__LINE__,__FILE__);
+
+                // for(int kl = 0; kl < k_alg*n_alg; kl++){
+                //     if(((uint32_t*)A_test)[kl] != ((uint32_t*)Ac_pack_v)[kl])
+                //         printf("FAULT\n");
+                // }
+
+                // assuming C starts cleared, but we want to += if iterating over k (pc)
+                // for(i=0; i < n_alg; ++i) {
+                //   memcpy(
+                //     &(c_sub_matrix[ic_iter % 2][i*cs_c]), &Cc[i*ldc], m_alg*sizeof(unsigned int)
+                //   );
+                // }
+                //
+                // err=clEnqueueWriteBuffer(
+                //   io_queue, c_buffers[ic_iter % 2], CL_FALSE, 0,
+                //   GPU_BLOCK_MC*GPU_BLOCK_NC*sizeof(unsigned int),
+                //                                             c_sub_matrix[ic_iter % 2],
+                //   0, NULL, &events[(ic_iter % 2)*4 + 1]
+                // );
+                // printCLErr(err,__LINE__,__FILE__);
+
+
+                // printf(
+                //   "\nm: %u, n: %u, k: %u, ic: %u, jc: %u, loc: %lu,%lu, glob: %lu,%lu\n",
+                //   m_alg, n_alg, k_alg, ic, jc, local[0], local[1], global[0], global[1]
+                // );
+
+                err=clEnqueueNDRangeKernel(
+                        io_queue, kernels[ic_iter % 2], work_dim, NULL, global, local,	// WAS COMPUTE_QUEUE
+                        1, &events[(ic_iter % 2)*4], &events[(ic_iter % 2)*4 + 2]
+                        );
+                printCLErr(err,__LINE__,__FILE__);
+
+				clWaitForEvents(1, &events[(ic_iter % 2)*4 + 2]);
+
+                // err=clEnqueueReadBuffer(
+                //   io_queue, c_buffers[ic_iter % 2], CL_TRUE, 0,
+                //   GPU_BLOCK_MC*GPU_BLOCK_NC*sizeof(unsigned int),
+                //                                               c_sub_matrix[ic_iter % 2],
+                //   1, &events[(ic_iter % 2)*4 + 2], &events[(ic_iter % 2)*4 + 3]
+                // );
+                // printCLErr(err,__LINE__,__FILE__);
+
+                // printf("\n");
+                // print_matrix(c_sub_matrix[0], GPU_BLOCK_MC, GPU_BLOCK_NC);
+                // printf("\n");
+
+                // add event timing (since kernel is done -- TODO: make this callback too)
+
+                for(i=0; i < n_alg; ++i)
+                {
+                    // for(i=0; i < GPU_BLOCK_NC; ++i) {
+                    err=clEnqueueReadBuffer(
+                            io_queue, c_buffers[ic_iter % 2], CL_FALSE,
+                            i*cs_c*sizeof(inputDataType_x32),
+                            m_alg*sizeof(inputDataType_x32), &Cc[i*ldc],
+                            // GPU_BLOCK_MC*sizeof(unsigned int), &Cc[i*ldc],
+                            // 1, &events[(ic_iter % 2)*4 + 2], NULL
+							0, NULL, NULL
+                            );
+                    printCLErr(err,__LINE__,__FILE__);
+                }
+
+                //                getc(stdin); //used to pause program for monitoring - MPAMPIS -
+
+                clFinish(io_queue);
+                // clFinish(compute_queue);
+
+                // TODO: do this in a callback function and make read C asynchronous
+                // n_alg rows, each row ldc or cs_c
+                // for(i=0; i < n_alg; ++i) {
+                //   memcpy(
+                //     &Cc[i*ldc], &(c_sub_matrix[ic_iter % 2][i*cs_c]),
+                //     m_alg*sizeof(unsigned int)
+                //   );
+                // }
+
+                ic_iter += 1;
+            }
+            pc_iter += 1;
+        }
+    }
+}
+
+void mlt_gpu(unsigned int m,
+        unsigned int k,
+        inputDataType_x32 *A,
+        inputDataType_x32 *tableA)
+{
+    for(unsigned int i=0;i<m;i++)
+    {
+        for(unsigned int j=0;j<k;j++)
+        {
+            ((inputDataType_x32*)A)[j*m + i]=tableA[i*k + j];
+        }
+    }
+}
+
+void get_pairwise_ld_score_gpu(unsigned int * tableA_bitcount,
+        unsigned int * tableB_bitcount,
+        inputDataType_x32 * C,
+        int tableAsize,
+        int tableBsize,
+        int snp_size,
+        float** results)
+{
+    int i,j;
+    float val_1, val_2, val_3;
+    for(i=0;i<tableBsize;i++)
+    {
+        for(j=0;j<tableAsize;j++)
+        {
+            (*results)[i*tableAsize+j]=0.0f;
+            if(tableB_bitcount[i] != 0 && tableA_bitcount[j] != 0)
+            {
+                val_1=((float)tableA_bitcount[j])/snp_size;
+                val_2=((float)tableB_bitcount[i])/snp_size;
+                val_3=((float)C[i*tableAsize+j])/snp_size;
+                (*results)[i*tableAsize+j]=((val_3-val_1*val_2)*(val_3-val_1*val_2));
+                (*results)[i*tableAsize+j] /= (val_1*val_2*(1.0-val_1)*(1.0-val_2));
+
+                if((*results)[i*tableAsize+j]>1.0001)
+                {
+                    (*results)[i*tableAsize+j]=123.456000000;
+                }
+            }
+        }
+    }
+    fflush(stderr);
+}
+
+float * correlate_gpu(uint32_t* tableA,
+				unsigned int *tableA_bitcount,
+               	int tableAsize,
+               	int compressed_snp_size,
+			   	int snp_size)
+{
+    int m=tableAsize, n=tableAsize, k=compressed_snp_size; 
+    long long int i;
+    long long int tableCsize = (long long int)m*(long long int)n;
+    int pm;     //return value used for assert
+
+    void *Ac_pack_v=NULL, *Bc_pack_v=NULL, *A=NULL, *C=NULL;
+    pm=posix_memalign(&(Ac_pack_v), 4096,
+            12*GPU_BLOCK_MC*GPU_BLOCK_KC*sizeof(inputDataType_x32));
+    assert(!pm);
+    pm=posix_memalign(&(Bc_pack_v), 4096,
+            GPU_BLOCK_KC*GPU_BLOCK_NC*sizeof(inputDataType_x32));
+    assert(!pm);
+
+    pm=posix_memalign(&A, 4096, m*k*sizeof(inputDataType_x32) +
+            m*k*sizeof(inputDataType_x32)%4096);
+    assert(!pm);
+    pm=posix_memalign(&C, 4096, tableCsize*sizeof(inputDataType_x32) +
+            tableCsize*sizeof(inputDataType_x32)%4096);
+    assert(!pm);
+
+	float *results =(float*)malloc(tableCsize*sizeof(float));
+    assert(results);
+
+    for(i=0;i<tableCsize;i++)
+    {
+        ((inputDataType_x32*)C)[i]=0;
+		results[i]=0;
+    }
+
+    mlt_gpu(m, k, A, tableA);
+	
+    gpu_gemm(m,
+            n,
+            k,
+            A,
+            m,
+            tableA,
+            k,
+            C,
+            m,
+            Ac_pack_v,
+            Bc_pack_v);
+
+    get_pairwise_ld_score_gpu(tableA_bitcount,
+			tableA_bitcount,
+            C,
+            m,
+            n,
+            snp_size,
+            &results);
+
+	free(Ac_pack_v);
+	free(Bc_pack_v);
+    free(A);
+    free(C);
+
+	return results;
+}
+
 static void create_program_with_source(cl_program *program,
                                        cl_context *context,
                                        const char *program_file)
@@ -4368,7 +4807,7 @@ void gpu_init(void)
                         &comp_units, NULL);
     printCLErr(err,__LINE__,__FILE__);
 
-	group_size = max_group_size; //pref_group_size; //variate!!
+	group_size = max_group_size/4; //pref_group_size; //variate!!
 
 	// work_items = group_size * 72;			//variate!!
 	work_items = group_size * comp_units * 12;

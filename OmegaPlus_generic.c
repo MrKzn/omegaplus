@@ -1398,10 +1398,11 @@ void mlt_gpu(unsigned int m,
     }
 }
 
-uint32_t * correlate_gpu(uint32_t* tableA,
-               int tableAsize,
-               int compressed_snp_size,
-			   int group_size)
+float * correlate_gpu(uint32_t* tableA,
+				unsigned int *tableA_bitcount,
+               	int tableAsize,
+               	int compressed_snp_size,
+			   	int snp_size)
 {
     int m=tableAsize, n=tableAsize, k=compressed_snp_size; 
     long long int i;
@@ -1423,9 +1424,13 @@ uint32_t * correlate_gpu(uint32_t* tableA,
             tableCsize*sizeof(inputDataType_x32)%4096);
     assert(!pm);
 
+	float *results =(float*)malloc(tableCsize*sizeof(float));
+    assert(results);
+
     for(i=0;i<tableCsize;i++)
     {
         ((inputDataType_x32*)C)[i]=0;
+		results[i]=0;
     }
 
     mlt_gpu(m, k, A, tableA);
@@ -1442,26 +1447,51 @@ uint32_t * correlate_gpu(uint32_t* tableA,
             Ac_pack_v,
             Bc_pack_v);
 
-    // int l,o;
-	// unsigned int row=0,col=0,tx=0;
-	
-	// for(o=0;o<m/group_size;o++){
-	// 	tx=o*group_size;
-	// 	for(i=1;i<group_size;i++) // i is row indexing
-	// 	{
-	// 		row = (i+tx)*m;
-	// 		for(l=i-1;l>=0;l--){ // l is col indexing
-	// 			col = l+tx;
-	// 			if(((uint32_t*)C)[row+col]>0)
-	// 				printf("qLD row: %llu, col: %u, val: %u\n",(i+tx),col,((uint32_t*)C)[row+col]);
-	// 		}
-	// 	}
-	// }
+    get_pairwise_ld_score_gpu(tableA_bitcount,
+			tableA_bitcount,
+            C,
+            m,
+            n,
+            snp_size,
+            &results);
 
 	free(Ac_pack_v);
 	free(Bc_pack_v);
     free(A);
-    // free(C);
+    free(C);
 
-	return ((uint32_t*)C);
+	return results;
+}
+
+void get_pairwise_ld_score_gpu(unsigned int * tableA_bitcount,
+        unsigned int * tableB_bitcount,
+        inputDataType_x32 * C,
+        int tableAsize,
+        int tableBsize,
+        int snp_size,
+        float** results)
+{
+    int i,j;
+    float val_1, val_2, val_3;
+    for(i=0;i<tableBsize;i++)
+    {
+        for(j=0;j<tableAsize;j++)
+        {
+            (*results)[i*tableAsize+j]=0.0f;
+            if(tableB_bitcount[i] != 0 && tableA_bitcount[j] != 0)
+            {
+                val_1=((float)tableA_bitcount[j])/snp_size;
+                val_2=((float)tableB_bitcount[i])/snp_size;
+                val_3=((float)C[i*tableAsize+j])/snp_size;
+                (*results)[i*tableAsize+j]=((val_3-val_1*val_2)*(val_3-val_1*val_2));
+                (*results)[i*tableAsize+j] /= (val_1*val_2*(1.0-val_1)*(1.0-val_2));
+
+                if((*results)[i*tableAsize+j]>1.0001)
+                {
+                    (*results)[i*tableAsize+j]=123.456000000;
+                }
+            }
+        }
+    }
+    fflush(stderr);
 }

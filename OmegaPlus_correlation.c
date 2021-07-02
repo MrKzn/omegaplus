@@ -1098,7 +1098,7 @@ void computeCorrelationMatrixPairwise(alignment_struct * alignment, omega_struct
 }
 #endif
 #else
-void computeCorrelationsBIN(alignment_struct * alignment, omega_struct * omega, int omegaIndex, int firstRow)
+void computeCorrelationsBIN(alignment_struct * alignment, omega_struct * omega, int omegaIndex, int firstRow, float * qLD_res)
 {
 	assert(omega[omegaIndex].rightIndex>=omega[omegaIndex].leftIndex);
 	
@@ -1116,12 +1116,13 @@ void computeCorrelationsBIN(alignment_struct * alignment, omega_struct * omega, 
 			s_i = i + omega[omegaIndex].leftIndex;
 			s_j = j + omega[omegaIndex].leftIndex;
 
-			alignment->correlationMatrix[i][j] = computePairwiseCorrelationBIN(alignment, s_i, s_j);
+			// alignment->correlationMatrix[i][j] = computePairwiseCorrelationBIN(alignment, s_i, s_j);
+			alignment->correlationMatrix[i][j] = qLD_res[s_i*alignment->segsites+s_j];
 		}
 	}	
 }
 
-void computeCorrelationsBINGAPS(alignment_struct * alignment, omega_struct * omega, int omegaIndex, int firstRow)
+void computeCorrelationsBINGAPS(alignment_struct * alignment, omega_struct * omega, int omegaIndex, int firstRow, float * qLD_res)
 {
 	assert(omega[omegaIndex].rightIndex>=omega[omegaIndex].leftIndex);
 	
@@ -1139,7 +1140,8 @@ void computeCorrelationsBINGAPS(alignment_struct * alignment, omega_struct * ome
 			s_i = i + omega[omegaIndex].leftIndex;
 			s_j = j + omega[omegaIndex].leftIndex;
 
-			alignment->correlationMatrix[i][j] = computePairwiseCorrelationBINGAPS(alignment, s_i, s_j);
+			// alignment->correlationMatrix[i][j] = computePairwiseCorrelationBINGAPS(alignment, s_i, s_j);
+			alignment->correlationMatrix[i][j] = qLD_res[s_i*alignment->segsites+s_j];
 		}
 	}
 }
@@ -1190,7 +1192,7 @@ void computeCorrelationsDNAGAPS(alignment_struct * alignment, omega_struct * ome
 	}
 }
 
-void computeCorrelationMatrixPairwise(alignment_struct * alignment, omega_struct * omega, int omegaIndex, int firstRowIndex, void * threadData, cor_t ** myCorrelationMatrix, char * lookuptable)
+void computeCorrelationMatrixPairwise(alignment_struct * alignment, omega_struct * omega, int omegaIndex, int firstRowIndex, void * threadData, cor_t ** myCorrelationMatrix, char * lookuptable, float * qLD_res)
 {
 
 	if (firstRowIndex==-1)
@@ -1198,9 +1200,9 @@ void computeCorrelationMatrixPairwise(alignment_struct * alignment, omega_struct
 
 	switch(alignment->states)
 	{
-		case 2: computeCorrelationsBIN(alignment,omega,omegaIndex, firstRowIndex); 
+		case 2: computeCorrelationsBIN(alignment,omega,omegaIndex, firstRowIndex, qLD_res); 
 			break;
-		case 3: computeCorrelationsBINGAPS(alignment,omega,omegaIndex, firstRowIndex); 
+		case 3: computeCorrelationsBINGAPS(alignment,omega,omegaIndex, firstRowIndex, qLD_res); 
 			break;
 		case 4: computeCorrelationsDNA(alignment, omega, omegaIndex, firstRowIndex); 
 			break;
