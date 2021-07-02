@@ -3275,7 +3275,7 @@ void computeOmegaValues_gpu17 (omega_struct * omega, int omegaIndex, cor_t ** co
 			index = i;
 		}
 	}
-
+	printf("%f\n",maxW);
 	maxLeftIndex = (leftMinIndex - (indexes[index]/inner_work)) + omega[omegaIndex].leftIndex;
 	maxRightIndex = (rightMinIndex + (indexes[index]%inner_work)) + omega[omegaIndex].leftIndex;
 
@@ -4444,13 +4444,13 @@ void get_pairwise_ld_score_gpu(unsigned int * tableA_bitcount,
                 val_1=((float)tableA_bitcount[j])/snp_size;
                 val_2=((float)tableB_bitcount[i])/snp_size;
                 val_3=((float)C[i*tableAsize+j])/snp_size;
-                (*results)[i*tableAsize+j]=((val_3-val_1*val_2)*(val_3-val_1*val_2));
+                (*results)[i*tableAsize+j]=snp_size*((val_3-val_1*val_2)*(val_3-val_1*val_2));
                 (*results)[i*tableAsize+j] /= (val_1*val_2*(1.0-val_1)*(1.0-val_2));
 
-                if((*results)[i*tableAsize+j]>1.0001)
-                {
-                    (*results)[i*tableAsize+j]=123.456000000;
-                }
+                // if((*results)[i*tableAsize+j]>1.0001)
+                // {
+                //     (*results)[i*tableAsize+j]=123.456000000;
+                // }
             }
         }
     }
