@@ -447,7 +447,7 @@ void gpu_gemm(unsigned int m,
         void *Ac_pack_v,
         void *Bc_pack_v)
 {
-    static cl_ulong p_start, p_end, p_total=0;
+    // static cl_ulong p_start, p_end, p_total=0;
     inputDataType_x32 *Ac, *Bc;
     inputDataType_x32 *Cc;
     //unsigned int *Ar, *Br;
@@ -642,21 +642,22 @@ void gpu_gemm(unsigned int m,
                 // );
 
                 err=clEnqueueNDRangeKernel(
-                        io_queue, kernels[ic_iter % 2], work_dim, NULL, global, local,	// WAS COMPUTE_QUEUE
+                        // io_queue, kernels[ic_iter % 2], work_dim, NULL, global, local,
+                        compute_queue, kernels[ic_iter % 2], work_dim, NULL, global, local,
                         1, &events[(ic_iter % 2)*4], &events[(ic_iter % 2)*4 + 2]
                         );
                 printCLErr(err,__LINE__,__FILE__);
 
-                clWaitForEvents(1, &events[(ic_iter % 2)*4 + 2]);   // With waiting for event, qLD is much faster
+                // clWaitForEvents(1, &events[(ic_iter % 2)*4 + 2]);   // With waiting for event, qLD is much faster
 
-                err=clGetEventProfilingInfo(events[(ic_iter % 2)*4 + 2], CL_PROFILING_COMMAND_START, sizeof(cl_ulong),
-                                        &p_start, NULL);
-                printCLErr(err,__LINE__,__FILE__);
-                err=clGetEventProfilingInfo(events[(ic_iter % 2)*4 + 2], CL_PROFILING_COMMAND_END, sizeof(cl_ulong),
-                                        &p_end, NULL);
-                printCLErr(err,__LINE__,__FILE__);
+                // err=clGetEventProfilingInfo(events[(ic_iter % 2)*4 + 2], CL_PROFILING_COMMAND_START, sizeof(cl_ulong),
+                //                         &p_start, NULL);
+                // printCLErr(err,__LINE__,__FILE__);
+                // err=clGetEventProfilingInfo(events[(ic_iter % 2)*4 + 2], CL_PROFILING_COMMAND_END, sizeof(cl_ulong),
+                //                         &p_end, NULL);
+                // printCLErr(err,__LINE__,__FILE__);
 
-                p_total += p_end - p_start;
+                // p_total += p_end - p_start;
 
                 // err=clEnqueueReadBuffer(
                 //   io_queue, c_buffers[ic_iter % 2], CL_TRUE, 0,
@@ -680,7 +681,8 @@ void gpu_gemm(unsigned int m,
                             i*cs_c*sizeof(inputDataType_x32),
                             m_alg*sizeof(inputDataType_x32), &Cc[i*ldc],
                             // GPU_BLOCK_MC*sizeof(unsigned int), &Cc[i*ldc],
-                            0, NULL, NULL
+                            1, &events[(ic_iter % 2)*4 + 2], NULL
+                            // 0, NULL, NULL
                             );
                     printCLErr(err,__LINE__,__FILE__);
                 }
@@ -688,7 +690,7 @@ void gpu_gemm(unsigned int m,
                 //                getc(stdin); //used to pause program for monitoring - MPAMPIS -
 
                 clFinish(io_queue);
-                // clFinish(compute_queue);
+                clFinish(compute_queue);
 
                 // TODO: do this in a callback function and make read C asynchronous
                 // n_alg rows, each row ldc or cs_c
@@ -704,7 +706,7 @@ void gpu_gemm(unsigned int m,
             pc_iter += 1;
         }
     }
-    printf("%lu\n",p_total);
+    // printf("%lu\n",p_total);
 }
 
 void mlt_gpu(unsigned int m,
@@ -741,13 +743,13 @@ void get_pairwise_ld_score_gpu(unsigned int * tableA_bitcount,
                 val_1=((float)tableA_bitcount[j])/snp_size;
                 val_2=((float)tableB_bitcount[i])/snp_size;
                 val_3=((float)C[i*tableAsize+j])/snp_size;
-                (*results)[i*tableAsize+j]=((val_3-val_1*val_2)*(val_3-val_1*val_2));
+                (*results)[i*tableAsize+j]=snp_size*((val_3-val_1*val_2)*(val_3-val_1*val_2));
                 (*results)[i*tableAsize+j] /= (val_1*val_2*(1.0-val_1)*(1.0-val_2));
 
-                if((*results)[i*tableAsize+j]>1.0001)
-                {
-                    (*results)[i*tableAsize+j]=123.456000000;
-                }
+                // if((*results)[i*tableAsize+j]>1.0001)
+                // {
+                //     (*results)[i*tableAsize+j]=123.456000000;
+                // }
             }
         }
     }
@@ -1226,17 +1228,13 @@ void gpu_init(void)
 	// cl_ulong TS_buffer_size 	= omega_buffer_size;
 
     // Divide remaining memory correctly over needed buffers
-    // cl_ulong remain = global_mem - total;       // Subtract some more bytes (whole mem cant be used)
-    cl_ulong remain = 512*41000*sizeof(float);
-    printf("remain: %lu\n",remain);
+    cl_ulong remain = (cl_ulong)(0.8 * (global_mem - total));
 
     double omega_portion = 34.0128, LRkm_portion = 5314.5, TS_portion = 1.0629;
 
 	cl_ulong omega_buffer_size 	= minlu(max_alloc, ((cl_ulong)(remain / omega_portion) / 256) * 256);		// # work items is unknown here, see omega2
 	cl_ulong LRkm_buffer_size 	= minlu(max_alloc, ((cl_ulong)(remain / LRkm_portion) / 256) * 256);
 	cl_ulong TS_buffer_size 	= minlu(max_alloc, ((cl_ulong)(remain / TS_portion) / 256) * 256);
-
-    printf("%lu\n",TS_buffer_size);
 
 	total += 2 * omega_buffer_size + 2 * LRkm_buffer_size + TS_buffer_size;
 

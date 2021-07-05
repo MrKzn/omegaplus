@@ -322,7 +322,7 @@ float get_Mem_GroupSize();
 void update_workgroup_map_ptr(float *** workgroup_map_ptr, int start, int finish, int first_group_index);
 void update_workgroup_map_partial_ptr(float *** workgroup_map_ptr, int start, int finish, int prev_start, int prev_finish, int first_group_index);
 void dp_on_tiles_overlap_ptr (int first_DP_tile, int last_DP_tile, float *** workgroup_map_ptr, float *** overlap_workgroup_map_ptr, int overlap, int first_group_index, alignment_struct * alignment, int leftSNPindex, int rightSNPindex, uint32_t * qLD_res);
-unsigned int precomputed16_bitcount (unsigned int n);
+
 cor_t computeCorrelationValueBIN(int sequences, unsigned int * accumXvec);
 cor_t computeCorrelationValueDNA(int sequences, cor_t pairwiseCorrelationMatrix[4][4], unsigned int * valid);
 void count01Combs (int total, unsigned int inputL, unsigned int inputR, unsigned int * accumXvec);
@@ -332,6 +332,8 @@ int max(int a, int b);
 int min(int a, int b);
 float computeOmega (float LS, float RS, float TS, int k, int ksel2, int m, int msel2);
 #endif
+
+unsigned int precomputed16_bitcount (unsigned int n);
 
 // General ADDED
 double gettime(void);
@@ -483,8 +485,8 @@ void computeCorrelationMatrixPairwiseGPU(alignment_struct * alignment, omega_str
 
 void computeOmegas_gpu (alignment_struct * alignment, omega_struct * omega, int omegaIndex, void * threadData, cor_t ** correlationMatrix);
 
-void computeOmegaValues_gpuF (omega_struct * omega, int omegaIndex, cor_t ** correlationMatrix, void * threadData);
+// void computeOmegaValues_gpuF (omega_struct * omega, int omegaIndex, cor_t ** correlationMatrix, void * threadData);
 
-void computeOmega_gpuF1(float * omegas, float * LR, int * km, float * T, int in_out_cnt, int inner_cnt, unsigned int total);
+// void computeOmega_gpuF1(float * omegas, float * LR, int * km, float * T, int in_out_cnt, int inner_cnt, unsigned int total);
 
-void computeOmega_gpuF2(float * omegas, unsigned int * indexes, float * LR, int * km, float * T, int in_out_cnt, int outer, int inner, unsigned int total);
+// void computeOmega_gpuF2(float * omegas, unsigned int * indexes, float * LR, int * km, float * T, int in_out_cnt, int outer, int inner, unsigned int total);

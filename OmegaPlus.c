@@ -893,10 +893,10 @@ int main(int argc, char** argv)
 
 	omega_struct * omega;
 
+	// GPU variables
+	int gpu=0;
 	// qLD GPU calculations
 	float * qLD_res = NULL;
-	// Omega GPU calculations
-	int gpu=0;
 	
    	commandLineParser(argc, argv, inputFileName, &grid, &alignmentLength, &minw, &maxw, recfile, 
 			  &minsnps, &imputeN, &imputeG, &binary, &seed, &fileFormat, &threads, &resultType, &ld, &borderTol, &filterOut, &noSeparation, sampleVCFfileName,
