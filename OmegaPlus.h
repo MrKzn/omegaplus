@@ -424,7 +424,8 @@ unsigned int rs_c;
 unsigned int cs_c;
 
 // -- OMEGA OPENCL STUFF -- //
-#define OMEGA_NAME "omega2"
+#define OMEGA_NAME "omega3"
+// #define OMEGA_NAME "omega2"
 #define OMEGA_NAME2 "omega1"
 
 cl_mem omega_buffer;

@@ -701,3 +701,53 @@ __kernel void omega2 (
   omega_global[ig] = maxW;
   index_global[ig] = maxI - outer + io * inner;
 }
+
+__kernel void omega3 (
+    __global float *omega_global, __global unsigned int *index_global, __constant float *lr, 
+    __constant float *ts, __constant int *km, int outer, int inner,
+    __local float *lrs, __local int *lmss
+) {
+  unsigned int ig = get_global_id(0);
+  unsigned int il = get_local_id(0);
+  unsigned int ws = get_local_size(0);
+  unsigned int wg = get_group_id(0);
+
+  unsigned int io = ig % outer;
+  unsigned int st = (wg / (outer / ws)) * ws + outer;
+
+  const float den_off = 0.00001f;
+  unsigned int maxI, i, ii, ip = 0;
+
+  float l, r, t, n, d, tmpW, maxW = 0.0f;
+  int k, m, ks, ms;
+
+  l = lr[io];
+  k = km[io];
+  ks = (k * (k-1)) / 2;
+
+  lrs[il] = lr[st + il];
+  lmss[il] = km[st + il];
+
+  // Ensure writes have completed:
+  barrier(CLK_LOCAL_MEM_FENCE);   // Is stated in optimization guide since work group size is > 64
+
+  #pragma unroll 8
+  for(i = 0; i < ws; i++){
+    r = lrs[i];
+    m = lmss[i];
+
+    t = ts[i + st - outer + io * inner];
+
+    ms = (m * (m-1)) / 2;
+    n = (l + r) / (ks + ms);
+    d = (t - l - r) / (k * m) + den_off;
+    tmpW = n / d;
+
+    if(tmpW > maxW){
+      maxW = tmpW;
+      maxI = i;
+    }
+  }
+  omega_global[ig] = maxW;
+  index_global[ig] = maxI + st - outer + io * inner;
+}

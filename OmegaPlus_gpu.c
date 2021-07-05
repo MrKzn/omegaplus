@@ -642,13 +642,13 @@ void gpu_gemm(unsigned int m,
                 // );
 
                 err=clEnqueueNDRangeKernel(
-                        // io_queue, kernels[ic_iter % 2], work_dim, NULL, global, local,
-                        compute_queue, kernels[ic_iter % 2], work_dim, NULL, global, local,
+                        io_queue, kernels[ic_iter % 2], work_dim, NULL, global, local,
+                        // compute_queue, kernels[ic_iter % 2], work_dim, NULL, global, local,
                         1, &events[(ic_iter % 2)*4], &events[(ic_iter % 2)*4 + 2]
                         );
                 printCLErr(err,__LINE__,__FILE__);
 
-                // clWaitForEvents(1, &events[(ic_iter % 2)*4 + 2]);   // With waiting for event, qLD is much faster
+                clWaitForEvents(1, &events[(ic_iter % 2)*4 + 2]);   // With waiting for event, qLD is much faster
 
                 // err=clGetEventProfilingInfo(events[(ic_iter % 2)*4 + 2], CL_PROFILING_COMMAND_START, sizeof(cl_ulong),
                 //                         &p_start, NULL);
@@ -681,8 +681,8 @@ void gpu_gemm(unsigned int m,
                             i*cs_c*sizeof(inputDataType_x32),
                             m_alg*sizeof(inputDataType_x32), &Cc[i*ldc],
                             // GPU_BLOCK_MC*sizeof(unsigned int), &Cc[i*ldc],
-                            1, &events[(ic_iter % 2)*4 + 2], NULL
-                            // 0, NULL, NULL
+                            // 1, &events[(ic_iter % 2)*4 + 2], NULL
+                            0, NULL, NULL
                             );
                     printCLErr(err,__LINE__,__FILE__);
                 }
@@ -690,7 +690,7 @@ void gpu_gemm(unsigned int m,
                 //                getc(stdin); //used to pause program for monitoring - MPAMPIS -
 
                 clFinish(io_queue);
-                clFinish(compute_queue);
+                // clFinish(compute_queue);
 
                 // TODO: do this in a callback function and make read C asynchronous
                 // n_alg rows, each row ldc or cs_c
@@ -1229,6 +1229,7 @@ void gpu_init(void)
 
     // Divide remaining memory correctly over needed buffers
     cl_ulong remain = (cl_ulong)(0.8 * (global_mem - total));
+    remain = 41000 * 512 * sizeof(float);
 
     double omega_portion = 34.0128, LRkm_portion = 5314.5, TS_portion = 1.0629;
 
@@ -1324,12 +1325,21 @@ void gpu_init(void)
 	printCLErr(err,__LINE__,__FILE__);
 
 	// set kernel arguements for buffers
-	err |= clSetKernelArg(omega_kernel, 0, sizeof(cl_mem), &omega_buffer);
-	err |= clSetKernelArg(omega_kernel, 1, sizeof(cl_mem), &index_buffer);
-	err |= clSetKernelArg(omega_kernel, 2, sizeof(cl_mem), &LR_buffer);
-	err |= clSetKernelArg(omega_kernel, 3, sizeof(cl_mem), &TS_buffer);
-	err |= clSetKernelArg(omega_kernel, 4, sizeof(cl_mem), &km_buffer);
-	printCLErr(err,__LINE__,__FILE__);
+	// err |= clSetKernelArg(omega_kernel, 0, sizeof(cl_mem), &omega_buffer);
+	// err |= clSetKernelArg(omega_kernel, 1, sizeof(cl_mem), &index_buffer);
+	// err |= clSetKernelArg(omega_kernel, 2, sizeof(cl_mem), &LR_buffer);
+	// err |= clSetKernelArg(omega_kernel, 3, sizeof(cl_mem), &TS_buffer);
+	// err |= clSetKernelArg(omega_kernel, 4, sizeof(cl_mem), &km_buffer);
+	// printCLErr(err,__LINE__,__FILE__);
+
+    err |= clSetKernelArg(omega_kernel, 0, sizeof(cl_mem), &omega_buffer);
+    err |= clSetKernelArg(omega_kernel, 1, sizeof(cl_mem), &index_buffer);
+    err |= clSetKernelArg(omega_kernel, 2, sizeof(cl_mem), &LR_buffer);
+    err |= clSetKernelArg(omega_kernel, 3, sizeof(cl_mem), &TS_buffer);
+    err |= clSetKernelArg(omega_kernel, 4, sizeof(cl_mem), &km_buffer);
+    err |= clSetKernelArg(omega_kernel, 7, sizeof(cl_int) * group_size, NULL);
+    err |= clSetKernelArg(omega_kernel, 8, sizeof(cl_int) * group_size, NULL);
+    printCLErr(err,__LINE__,__FILE__);
 	
 	// set second kernel arguements for buffers
 	err |= clSetKernelArg(omega_kernel2, 0, sizeof(cl_mem), &omega_buffer);
