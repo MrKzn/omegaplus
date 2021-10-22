@@ -438,8 +438,9 @@ unsigned int cs_c;
 // #define OMEGA_NAME "omega14"
 // #define OMEGA_NAME "omega15"
 // #define OMEGA_NAME "omega16"
-#define OMEGA_NAME "omega17"
+// #define OMEGA_NAME "omega17"
 // #define OMEGA_NAME "omega18"
+#define OMEGA_NAME "omega19"
 // #define OMEGA_NAME "omegatest2"
 #define OMEGA_NAME2 ""
 // #define OMEGA_NAME2 "omega10"
@@ -459,6 +460,14 @@ cl_mem index_im;
 cl_mem index_buffer;
 cl_kernel omega_kernel;
 cl_kernel omega_kernel2;
+
+// Overlap double buffer test //
+cl_mem omega_buf[2];
+cl_mem RS_buf[2];
+cl_mem TS_buf[2];
+cl_mem m_buf[2];
+cl_kernel omega_kernels[2];
+// Overlap double buffer test //
 
 cl_uint comp_units;
 size_t group_size;
