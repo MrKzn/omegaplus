@@ -640,7 +640,7 @@ __kernel void blis_like4x8v2 (
 
 }
 
-__kernel void omega1 (
+__kernel void omega1 (    // use const instead of __constant https://www.paranumal.com/single-post/2018/02/26/basic-gpu-optimization-strategies
     __global float *omega, __constant float *lr, __constant float *ts, __constant int *km, int inner
 ) {
   const unsigned int i = get_global_id(0);

@@ -334,6 +334,7 @@ void computeOmegaValues_gpuF (omega_struct * omega, int omegaIndex, cor_t ** cor
 				T[inner_i] = correlationMatrix[j][i];
 
 				inner_i++;
+                // T++;         increase pointer location, only possible if T has its starting position
 			}
 			Lk_i++;
 		}
