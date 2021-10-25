@@ -3771,15 +3771,29 @@ void computeOmegaValues_gpu19 (omega_struct * omega, int omegaIndex, cor_t ** co
 		if(!outer_i)
 		{
 			err=clEnqueueWriteBuffer(
-				io_queue, RS_buf[i % 2], CL_FALSE, 0,
+				io_queue, RS_buf[0], CL_FALSE, 0,
 				inner_cnt*sizeof(float), RSs,
 				0, NULL, NULL
 				);
 			printCLErr(err,__LINE__,__FILE__);
 
 			err=clEnqueueWriteBuffer(
-				io_queue, m_buf[i % 2], CL_FALSE, 0,
+				io_queue, m_buf[0], CL_FALSE, 0,
 				inner_cnt*sizeof(int), ms,
+				0, NULL, &events[0]
+				);
+			printCLErr(err,__LINE__,__FILE__);
+
+			err=clEnqueueCopyBuffer(
+    			io_queue, RS_buf[0], RS_buf[1], 0, 0,
+				inner_cnt*sizeof(float),
+				1, &events[0], NULL
+				);
+			printCLErr(err,__LINE__,__FILE__);
+
+			err=clEnqueueCopyBuffer(
+    			io_queue, m_buf[0], m_buf[1], 0, 0,
+				inner_cnt*sizeof(int),
 				0, NULL, NULL
 				);
 			printCLErr(err,__LINE__,__FILE__);
@@ -3787,10 +3801,10 @@ void computeOmegaValues_gpu19 (omega_struct * omega, int omegaIndex, cor_t ** co
 		else
 		{
 			err=clEnqueueReadBuffer(
-					io_queue, omega_buf[(i + 1) % 2], CL_FALSE, 0,
-					inner_cnt*sizeof(float), omegas + (outer_i-1 * inner_cnt),
-					1, &events[(i + 1) % 2 + 2], NULL
-					);
+				io_queue, omega_buf[(i + 1) % 2], CL_FALSE, 0,
+				inner_cnt*sizeof(float), omegas + ((outer_i-1) * inner_cnt),
+				1, &events[(i + 1) % 2 + 2], NULL
+				);
 			printCLErr(err,__LINE__,__FILE__);
 		}
 
@@ -3802,19 +3816,19 @@ void computeOmegaValues_gpu19 (omega_struct * omega, int omegaIndex, cor_t ** co
 		printCLErr(err,__LINE__,__FILE__);
 
 		err=clEnqueueNDRangeKernel(
-				compute_queue, omega_kernels[i % 2], 1, NULL, &global, &local,
-				1, &events[i % 2], &events[i % 2 + 2]
-				);
+			compute_queue, omega_kernels[i % 2], 1, NULL, &global, &local,
+			1, &events[i % 2], &events[i % 2 + 2]
+			);
 		printCLErr(err,__LINE__,__FILE__);
 
 		outer_i++;
 	}
 	
 	err=clEnqueueReadBuffer(
-			io_queue, omega_buf[(i + 1) % 2], CL_FALSE, 0,
-			inner_cnt*sizeof(float), omegas + (outer_i-1 * inner_cnt),
-			1, &events[(i + 1) % 2 + 2], NULL
-			);
+		io_queue, omega_buf[(i + 1) % 2], CL_TRUE, 0,
+		inner_cnt*sizeof(float), omegas + ((outer_i-1) * inner_cnt),
+		1, &events[(i + 1) % 2 + 2], NULL
+		);
 	printCLErr(err,__LINE__,__FILE__);
 	
 	for(i=0;i<total;i++){
@@ -5328,30 +5342,18 @@ void gpu_init(void)
 	else if(strcmp(OMEGA_NAME, "omega19") == 0){
 		omega_buffer_size	= GPU_BLOCK_MC * sizeof(float);
 		m_buffer_size		= GPU_BLOCK_MC * sizeof(int);
-		for(i=0; i < 2; i++)
+		for(i = 0; i < 2; i++)
 		{
-			omega_buf[i]=clCreateBuffer(
-					context, CL_MEM_READ_WRITE,
-					omega_buffer_size, NULL, &err
-					);
+			omega_buf[i]=clCreateBuffer(context, CL_MEM_READ_WRITE, omega_buffer_size, NULL, &err);
 			printCLErr(err,__LINE__,__FILE__);
 
-			RS_buf[i]=clCreateBuffer(
-					context, CL_MEM_READ_ONLY,
-					omega_buffer_size, NULL, &err
-					);
+			RS_buf[i]=clCreateBuffer(context, CL_MEM_READ_ONLY, omega_buffer_size, NULL, &err);
 			printCLErr(err,__LINE__,__FILE__);
 
-			TS_buf[i]=clCreateBuffer(
-					context, CL_MEM_READ_ONLY,
-					omega_buffer_size, NULL, &err
-					);
+			TS_buf[i]=clCreateBuffer(context, CL_MEM_READ_ONLY, omega_buffer_size, NULL, &err);
 			printCLErr(err,__LINE__,__FILE__);
 
-			m_buf[i]=clCreateBuffer(
-					context, CL_MEM_READ_ONLY,
-					m_buffer_size, NULL, &err
-					);
+			m_buf[i]=clCreateBuffer(context, CL_MEM_READ_ONLY, m_buffer_size, NULL, &err);
 			printCLErr(err,__LINE__,__FILE__);
 
 			// create kernels
