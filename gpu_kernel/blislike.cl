@@ -1856,7 +1856,7 @@ void omega18 (
   unsigned int wg = get_group_id(0);
 
   unsigned int io = ig % outer;
-  unsigned int st = (wg / (inner / ws)) * ws + outer;
+  unsigned int st = (wg / (outer / ws)) * ws + outer;
 
   const float den_off = 0.00001f;
   unsigned int maxI, i, ii, ip = 0;
