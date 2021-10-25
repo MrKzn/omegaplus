@@ -3493,8 +3493,8 @@ void computeOmegaValues_gpuF (omega_struct * omega, int omegaIndex, cor_t ** cor
 	
 	if(total > 20000)	// Threshold
 	{
-		outer_work += group_size - (outer_cnt & (group_size - 1));
-		inner_work += group_size - (inner_cnt & (group_size - 1));
+		outer_work += group_size - (outer_cnt & (group_size - 1)); // outer_work = (outer_cnt + group_size - 1) & -group_size;
+		inner_work += group_size - (inner_cnt & (group_size - 1)); // outer_work = (outer_cnt + group_size - 1) & -group_size;
 		work_total = outer_work * inner_work;
 		in_out_cnt = outer_work + inner_work;
 
@@ -3709,6 +3709,132 @@ void computeOmegaValues_gpuF (omega_struct * omega, int omegaIndex, cor_t ** cor
 	free(LR);
 	free(km);
 	free(T);
+}
+
+void computeOmegaValues_gpu19 (omega_struct * omega, int omegaIndex, cor_t ** correlationMatrix, void * threadData)
+{
+	// static double mtime0, mtime1, mtimetot = 0;
+	float tmpW, maxW=0.0;
+	static float * omegas = NULL, * RSs = NULL, * TSs = NULL;
+
+	unsigned int total;
+	static int * ms = NULL, ks;
+	int i, j, maxLeftIndex=0, maxRightIndex=0, err=0,
+	
+	outer_cnt=0, inner_cnt=0, outer_i=0, inner_i=0,
+	
+	omegaSNIPIndex = omega[omegaIndex].omegaPos - omega[omegaIndex].leftIndex,
+
+	leftMinIndex = omega[omegaIndex].leftminIndex - omega[omegaIndex].leftIndex,
+
+	leftMaxIndex = omega[omegaIndex].leftIndex - omega[omegaIndex].leftIndex,
+	
+	rightMinIndex = omega[omegaIndex].rightminIndex - omega[omegaIndex].leftIndex,
+
+	rightMaxIndex = omega[omegaIndex].rightIndex - omega[omegaIndex].leftIndex;
+
+	outer_cnt = leftMinIndex-leftMaxIndex+1;
+	inner_cnt = rightMaxIndex-rightMinIndex+1;
+	total = outer_cnt * inner_cnt;
+	const size_t local = 128;
+	const size_t global = (outer_cnt + local - 1) & -local;
+	
+	omegas = malloc(sizeof(*omegas)*total);
+	RSs = malloc(sizeof(*RSs)*inner_cnt);
+	TSs = malloc(sizeof(*TSs)*inner_cnt);
+	ms = malloc(sizeof(*ms)*inner_cnt);
+
+	if(omegas==NULL || RSs==NULL || TSs==NULL || ms==NULL)
+		printf("MALLOC error, %u, %u, %u\n", (leftMinIndex-leftMaxIndex+1), inner_cnt, total);
+	
+	for (i=leftMinIndex;i>=leftMaxIndex;i--) // Left Side
+	{
+		// LSs[outer_i] = correlationMatrix[omegaSNIPIndex][i];
+		err |= clSetKernelArg(omega_kernels[i % 2], 4, sizeof(cl_float), &correlationMatrix[omegaSNIPIndex][i]);
+
+		// ks[outer_i] = omegaSNIPIndex - i + 1;
+		ks = omegaSNIPIndex - i + 1;
+		err |= clSetKernelArg(omega_kernels[i % 2], 5, sizeof(cl_int), &ks);
+
+		for(j=rightMinIndex;j<=rightMaxIndex;j++) // Right Side
+		{
+			if(!outer_i)
+			{
+				RSs[inner_i] = correlationMatrix[j][omegaSNIPIndex+1];
+
+				ms[inner_i] = j - omegaSNIPIndex;
+			}
+			
+			TSs[inner_i] = correlationMatrix[j][i];
+			inner_i++;
+		}
+		if(!outer_i)
+		{
+			err=clEnqueueWriteBuffer(
+				io_queue, RS_buf[i % 2], CL_FALSE, 0,
+				inner_cnt*sizeof(float), RSs,
+				0, NULL, NULL
+				);
+			printCLErr(err,__LINE__,__FILE__);
+
+			err=clEnqueueWriteBuffer(
+				io_queue, m_buf[i % 2], CL_FALSE, 0,
+				inner_cnt*sizeof(int), ms,
+				0, NULL, NULL
+				);
+			printCLErr(err,__LINE__,__FILE__);
+		}
+		else
+		{
+			err=clEnqueueReadBuffer(
+					io_queue, omega_buf[(i + 1) % 2], CL_FALSE, 0,
+					inner_cnt*sizeof(float), omegas + (outer_i-1 * inner_cnt),
+					1, &events[(i + 1) % 2 + 2], NULL
+					);
+			printCLErr(err,__LINE__,__FILE__);
+		}
+
+		err=clEnqueueWriteBuffer(
+			io_queue, TS_buf[i % 2], CL_FALSE, 0,
+			inner_cnt*sizeof(float), TSs,
+			0, NULL, &events[i % 2]
+			);
+		printCLErr(err,__LINE__,__FILE__);
+
+		err=clEnqueueNDRangeKernel(
+				compute_queue, omega_kernels[i % 2], 1, NULL, &global, &local,
+				1, &events[i % 2], &events[i % 2 + 2]
+				);
+		printCLErr(err,__LINE__,__FILE__);
+
+		outer_i++;
+	}
+	
+	err=clEnqueueReadBuffer(
+			io_queue, omega_buf[(i + 1) % 2], CL_FALSE, 0,
+			inner_cnt*sizeof(float), omegas + (outer_i-1 * inner_cnt),
+			1, &events[(i + 1) % 2 + 2], NULL
+			);
+	printCLErr(err,__LINE__,__FILE__);
+	
+	for(i=0;i<total;i++){
+		tmpW = omegas[i];
+		if(tmpW>maxW)
+		{
+			maxW = tmpW;
+			maxLeftIndex = (leftMinIndex - (int)(i/inner_cnt)) + omega[omegaIndex].leftIndex;
+			maxRightIndex = (rightMinIndex + (int)(i%inner_cnt)) + omega[omegaIndex].leftIndex;
+		}
+	}
+
+	omega[omegaIndex].maxValue = maxW;
+	omega[omegaIndex].maxLeftIndex  = maxLeftIndex;
+	omega[omegaIndex].maxRightIndex = maxRightIndex;
+	
+	free(omegas);
+	free(RSs);
+	free(TSs);
+	free(ms);
 }
 
 #ifdef _USE_PTHREADS
@@ -5198,6 +5324,48 @@ void gpu_init(void)
 		err |= clSetKernelArg(omega_kernel, 8, sizeof(cl_int) * group_size, NULL);
 		printCLErr(err,__LINE__,__FILE__);
 	}
+	// Overlap double buffer test //
+	else if(strcmp(OMEGA_NAME, "omega19") == 0){
+		omega_buffer_size	= GPU_BLOCK_MC * sizeof(float);
+		m_buffer_size		= GPU_BLOCK_MC * sizeof(int);
+		for(i=0; i < 2; i++)
+		{
+			omega_buf[i]=clCreateBuffer(
+					context, CL_MEM_READ_WRITE,
+					omega_buffer_size, NULL, &err
+					);
+			printCLErr(err,__LINE__,__FILE__);
+
+			RS_buf[i]=clCreateBuffer(
+					context, CL_MEM_READ_ONLY,
+					omega_buffer_size, NULL, &err
+					);
+			printCLErr(err,__LINE__,__FILE__);
+
+			TS_buf[i]=clCreateBuffer(
+					context, CL_MEM_READ_ONLY,
+					omega_buffer_size, NULL, &err
+					);
+			printCLErr(err,__LINE__,__FILE__);
+
+			m_buf[i]=clCreateBuffer(
+					context, CL_MEM_READ_ONLY,
+					m_buffer_size, NULL, &err
+					);
+			printCLErr(err,__LINE__,__FILE__);
+
+			// create kernels
+			omega_kernels[i]=clCreateKernel(program, OMEGA_NAME, &err);
+			printCLErr(err,__LINE__,__FILE__);
+
+			err |= clSetKernelArg(omega_kernels[i], 0, sizeof(cl_mem), &omega_buf[i]);
+			err |= clSetKernelArg(omega_kernels[i], 1, sizeof(cl_mem), &RS_buf[i]);
+			err |= clSetKernelArg(omega_kernels[i], 2, sizeof(cl_mem), &TS_buf[i]);
+			err |= clSetKernelArg(omega_kernels[i], 3, sizeof(cl_mem), &m_buf[i]);
+			printCLErr(err,__LINE__,__FILE__);
+		}
+	}
+	// Overlap double buffer test //
 	else{
 		printf("Wrong kernel name\n");
 	}
@@ -5219,6 +5387,7 @@ void gpu_init(void)
 		err |= clSetKernelArg(omega_kernel2, 3, sizeof(cl_mem), &km_buffer);
 		printCLErr(err,__LINE__,__FILE__);
 	}
+
 	// Get device max workgroup size
 	// size_t group_size;
 	// err=clGetDeviceInfo(devices[gpu], CL_DEVICE_MAX_WORK_GROUP_SIZE, sizeof(size_t),

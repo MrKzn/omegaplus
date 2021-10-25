@@ -1961,3 +1961,20 @@ void omegatest2 (
   omega_global[ig] = maxW;
   index_global[ig] = maxI;
 }
+
+__kernel void omega19 (
+    __global float *omega, __constant float *rs, __constant float *ts,
+    __constant int *m, float l, int k
+) {
+  const int i = get_global_id(0);
+
+  int ksel2 = k * (k-1) / 2;
+
+  int msel2 = (m[i] * (m[i]-1)) / 2;
+
+  float numerator = (l + rs[i]) / (ksel2 + msel2);
+
+  float denominator = (ts[i] - l - rs[i]) / (k*m[i]) + 0.00001f;
+
+  omega[i] =  numerator / denominator;
+}
