@@ -708,127 +708,127 @@ __kernel void omega3 (
   omega[i] = n / d;
 }
 
-__kernel void omega4 (
-    __global float *omega_global, __local float *omega_local, __global unsigned int *index_global, 
-    __local unsigned int *index_local, __constant float *lrkm, __constant float *ts, int inner, 
-    unsigned int iter
-) {
-  unsigned int ig = get_global_id(0);
-  unsigned int il = get_local_id(0);
-  unsigned int size_wg = get_local_size(0);
-  unsigned int size_cu = get_num_groups(0);
-  unsigned int iwg = get_group_id(0);
-  unsigned int ic = ig * iter;
+// __kernel void omega4 (
+//     __global float *omega_global, __local float *omega_local, __global unsigned int *index_global, 
+//     __local unsigned int *index_local, __constant float *lrkm, __constant float *ts, int inner, 
+//     unsigned int iter
+// ) {
+//   unsigned int ig = get_global_id(0);
+//   unsigned int il = get_local_id(0);
+//   unsigned int size_wg = get_local_size(0);
+//   unsigned int size_cu = get_num_groups(0);
+//   unsigned int iwg = get_group_id(0);
+//   unsigned int ic = ig * iter;
 
-  float numerator, denominator, maxW=0.0, tmpW;
-  unsigned int maxI, l, id, io, ii;
-  int vk, ksel, vm, msel;
+//   float numerator, denominator, maxW=0.0f, tmpW;
+//   unsigned int maxI, l, id, io, ii;
+//   int vk, ksel, vm, msel;
   
-  for(l = 0; l < iter; l++){    // Read "4 bytes/cycle" more reads higher speeds
-    id = ic + l;
-    io = (int)(id / inner) * 2 + (2 * inner);//((int)(id / inner) << 1) + (inner << 1);
-    ii = (id % inner) * 2;//(id % inner) << 1;
+//   for(l = 0; l < iter; l++){    // Read "4 bytes/cycle" more reads higher speeds
+//     id = ic + l;
+//     io = (int)(id / inner) * 2 + (2 * inner);//((int)(id / inner) << 1) + (inner << 1);
+//     ii = (id % inner) * 2;//(id % inner) << 1;
 
-    vk = (int)lrkm[io+1];
-    ksel = (vk * (vk-1)) / 2;//(vk * (vk-1)) >> 1;
+//     vk = (int)lrkm[io+1];
+//     ksel = (vk * (vk-1)) / 2;//(vk * (vk-1)) >> 1;
 
-    vm = (int)lrkm[ii+1];
-    msel = (vm * (vm-1)) / 2;//(vm * (vm-1)) >> 1;
+//     vm = (int)lrkm[ii+1];
+//     msel = (vm * (vm-1)) / 2;//(vm * (vm-1)) >> 1;
 
-    numerator = (lrkm[io] + lrkm[ii]) / (ksel + msel);
+//     numerator = (lrkm[io] + lrkm[ii]) / (ksel + msel);
 
-    denominator = (ts[id] - lrkm[io] - lrkm[ii]) / (vk*vm) + 0.00001f;
+//     denominator = (ts[id] - lrkm[io] - lrkm[ii]) / (vk*vm) + 0.00001f;
 
-    tmpW = numerator / denominator;
+//     tmpW = numerator / denominator;
 
-    if(tmpW > maxW){
-      maxW = tmpW;
-      maxI = id;
-    }
-  }
-  omega_local[il] = maxW;
-  index_local[il] = maxI;
-  // Wait for all local threads to finish 
-  barrier(CLK_LOCAL_MEM_FENCE);
-  if(il == 0){  // Every 1st thread of a work group // Can use multiple threads with tmpW2, maxW2
-    for(l = 1; l < size_wg; l++){   // For every local memory item (work-group item)
-      if(omega_local[l] > omega_local[0]){  // number of work groups remaining maxW values
-        omega_local[0] = omega_local[l];
-        index_local[0] = index_local[l];
-      }
-    }
-    omega_global[iwg] = omega_local[0];
-    index_global[iwg] = index_local[0];
-  }
-  barrier(CLK_GLOBAL_MEM_FENCE);
-  if(ig == 0){  // Very first (global) thread
-    for(l = 1; l < size_cu; l++){   // For every global memory item (work-group id)
-      if(omega_global[l] > omega_global[0]){
-        omega_global[0] = omega_global[l];
-        index_global[0] = index_global[l];
-      }
-    }
-  }
-}
+//     if(tmpW > maxW){
+//       maxW = tmpW;
+//       maxI = id;
+//     }
+//   }
+//   omega_local[il] = maxW;
+//   index_local[il] = maxI;
+//   // Wait for all local threads to finish 
+//   barrier(CLK_LOCAL_MEM_FENCE);
+//   if(il == 0){  // Every 1st thread of a work group // Can use multiple threads with tmpW2, maxW2
+//     for(l = 1; l < size_wg; l++){   // For every local memory item (work-group item)
+//       if(omega_local[l] > omega_local[0]){  // number of work groups remaining maxW values
+//         omega_local[0] = omega_local[l];
+//         index_local[0] = index_local[l];
+//       }
+//     }
+//     omega_global[iwg] = omega_local[0];
+//     index_global[iwg] = index_local[0];
+//   }
+//   barrier(CLK_GLOBAL_MEM_FENCE);
+//   if(ig == 0){  // Very first (global) thread
+//     for(l = 1; l < size_cu; l++){   // For every global memory item (work-group id)
+//       if(omega_global[l] > omega_global[0]){
+//         omega_global[0] = omega_global[l];
+//         index_global[0] = index_global[l];
+//       }
+//     }
+//   }
+// }
 
-__kernel void omega5 (
-    __global float *omega_global, __local float *omega_local, __global unsigned int *index_global, 
-    __local unsigned int *index_local, __constant float *ls, __constant float *rs, __constant float *ts,
-    __constant int *k, __constant int *m, unsigned int iter
-) {
-  unsigned int ig = get_global_id(0);
-  unsigned int il = get_local_id(0);
-  unsigned int size_wg = get_local_size(0);
-  unsigned int size_cu = get_num_groups(0);
-  unsigned int iwg = get_group_id(0);
-  unsigned int ic = ig * iter;
+// __kernel void omega5 (
+//     __global float *omega_global, __local float *omega_local, __global unsigned int *index_global, 
+//     __local unsigned int *index_local, __constant float *ls, __constant float *rs, __constant float *ts,
+//     __constant int *k, __constant int *m, unsigned int iter
+// ) {
+//   unsigned int ig = get_global_id(0);
+//   unsigned int il = get_local_id(0);
+//   unsigned int size_wg = get_local_size(0);
+//   unsigned int size_cu = get_num_groups(0);
+//   unsigned int iwg = get_group_id(0);
+//   unsigned int ic = ig * iter;
 
-  float numerator, denominator, maxW=0.0, tmpW;
-  unsigned int maxI, l, id, io, ii;
-  int ksel, msel;
+//   float numerator, denominator, maxW=0.0f, tmpW;
+//   unsigned int maxI, l, id, io, ii;
+//   int ksel, msel;
   
-  for(l = 0; l < iter; l++){    // Read "4 bytes/cycle" more reads higher speeds? Bank?
-    id = ic + l;
+//   for(l = 0; l < iter; l++){    // Read "4 bytes/cycle" more reads higher speeds? Bank?
+//     id = ic + l;
 
-    ksel = k[id] * (k[id]-1) / 2;
+//     ksel = k[id] * (k[id]-1) / 2;
 
-    msel = (m[id] * (m[id]-1)) / 2;
+//     msel = (m[id] * (m[id]-1)) / 2;
 
-    numerator = (ls[id] + rs[id]) / (ksel + msel);
+//     numerator = (ls[id] + rs[id]) / (ksel + msel);
 
-    denominator = (ts[id] - ls[id] - rs[id]) / (k[id]*m[id]) + 0.00001f;
+//     denominator = (ts[id] - ls[id] - rs[id]) / (k[id]*m[id]) + 0.00001f;
 
-    tmpW = numerator / denominator;
+//     tmpW = numerator / denominator;
 
-    if(tmpW > maxW){
-      maxW = tmpW;
-      maxI = id;
-    }
-  }
-  omega_local[il] = maxW;
-  index_local[il] = maxI;
-  // Wait for all local threads to finish 
-  barrier(CLK_LOCAL_MEM_FENCE);
-  if(il == 0){  // Every 1st thread of a work group // Can use multiple threads with tmpW2, maxW2
-    for(l = 1; l < size_wg; l++){   // For every local memory item (work-group item)
-      if(omega_local[l] > omega_local[0]){  // number of work groups remaining maxW values
-        omega_local[0] = omega_local[l];
-        index_local[0] = index_local[l];
-      }
-    }
-    omega_global[iwg] = omega_local[0];
-    index_global[iwg] = index_local[0];
-  }
-  barrier(CLK_GLOBAL_MEM_FENCE);
-  if(ig == 0){  // Very first (global) thread
-    for(l = 1; l < size_cu; l++){   // For every global memory item (work-group id)
-      if(omega_global[l] > omega_global[0]){
-        omega_global[0] = omega_global[l];
-        index_global[0] = index_global[l];
-      }
-    }
-  }
-}
+//     if(tmpW > maxW){
+//       maxW = tmpW;
+//       maxI = id;
+//     }
+//   }
+//   omega_local[il] = maxW;
+//   index_local[il] = maxI;
+//   // Wait for all local threads to finish 
+//   barrier(CLK_LOCAL_MEM_FENCE);
+//   if(il == 0){  // Every 1st thread of a work group // Can use multiple threads with tmpW2, maxW2
+//     for(l = 1; l < size_wg; l++){   // For every local memory item (work-group item)
+//       if(omega_local[l] > omega_local[0]){  // number of work groups remaining maxW values
+//         omega_local[0] = omega_local[l];
+//         index_local[0] = index_local[l];
+//       }
+//     }
+//     omega_global[iwg] = omega_local[0];
+//     index_global[iwg] = index_local[0];
+//   }
+//   barrier(CLK_GLOBAL_MEM_FENCE);
+//   if(ig == 0){  // Very first (global) thread
+//     for(l = 1; l < size_cu; l++){   // For every global memory item (work-group id)
+//       if(omega_global[l] > omega_global[0]){
+//         omega_global[0] = omega_global[l];
+//         index_global[0] = index_global[l];
+//       }
+//     }
+//   }
+// }
 
 __kernel void omega6 (
     __global float *omega_global, __global unsigned int *index_global, __constant float *lr, 
@@ -837,7 +837,7 @@ __kernel void omega6 (
   unsigned int ig = get_global_id(0);
   unsigned int ic = ig * iter;
 
-  float numerator, denominator, maxW=0.0, tmpW;
+  float numerator, denominator, maxW=0.0f, tmpW;
   unsigned int maxI, i, id, io, ii;
   int vk, ksel, vm, msel;
   
@@ -876,7 +876,7 @@ __kernel void omega7 (
   unsigned int ic = ig * iter;
 
   const float den_off = 0.00001f;
-  float maxW=0.0;
+  float maxW=0.0f;
   unsigned int maxI, i, id, lf = 4;
 
   float l1, l2, l3, l4;
@@ -1098,7 +1098,7 @@ __kernel void omega9 (
   // unsigned int ie = ic + inner;
 
   const float den_off = 0.00001f;
-  float maxW=0.0;
+  float maxW=0.0f;
   unsigned int maxI, i, id, lf = 4;
 
   float l1;
@@ -1556,245 +1556,245 @@ __kernel void omega14 (
   index_global[ig] = maxI + ic;
 }
 
-__kernel void omega15 (
-    __global float *omega_global, __global unsigned int *index_global, __constant float *ls, 
-    __constant float *rs, __constant float *ts, __constant int *kss, __constant int *mss, int gr_load,
-    int it_load
-) {
-  unsigned int wg = get_group_id(0);
-  unsigned int il = get_local_id(0);
-  unsigned int gs = get_local_size(0);
-  unsigned int ig = get_global_id(0);
-  unsigned int gr = get_num_groups(0);
-  // unsigned int ii = wg * gs * (gr_load * it_load) + il;
-  unsigned int ii = ig; //wg * gs + il;
+// __kernel void omega15 (
+//     __global float *omega_global, __global unsigned int *index_global, __constant float *ls, 
+//     __constant float *rs, __constant float *ts, __constant int *kss, __constant int *mss, int gr_load,
+//     int it_load
+// ) {
+//   unsigned int wg = get_group_id(0);
+//   unsigned int il = get_local_id(0);
+//   unsigned int gs = get_local_size(0);
+//   unsigned int ig = get_global_id(0);
+//   unsigned int gr = get_num_groups(0);
+//   // unsigned int ii = wg * gs * (gr_load * it_load) + il;
+//   unsigned int ii = ig; //wg * gs + il;
 
-  const float den_off = 0.00001f;
-  unsigned int maxI, i, j;
-  // unsigned int maxI, i, j, lf = 8;
+//   const float den_off = 0.00001f;
+//   unsigned int maxI, i, j;
+//   // unsigned int maxI, i, j, lf = 8;
 
-  // float tmpW, maxW = 0.0f;
-  float l, r, t, n, d, tmpW, maxW = 0.0f;
-  int k, m, ks, ms;
+//   // float tmpW, maxW = 0.0f;
+//   float l, r, t, n, d, tmpW, maxW = 0.0f;
+//   int k, m, ks, ms;
 
-  // float l1;
-  // float r1, r2, r3, r4, r5, r6, r7, r8;
-  // float t1, t2, t3, t4, t5, t6, t7, t8;
-  // float n1, n2, n3, n4, n5, n6, n7, n8;
-  // float d1, d2, d3, d4, d5, d6, d7, d8;
-  // float tmp1, tmp2, tmp3, tmp4, tmp5, tmp6, tmp7, tmp8;
+//   // float l1;
+//   // float r1, r2, r3, r4, r5, r6, r7, r8;
+//   // float t1, t2, t3, t4, t5, t6, t7, t8;
+//   // float n1, n2, n3, n4, n5, n6, n7, n8;
+//   // float d1, d2, d3, d4, d5, d6, d7, d8;
+//   // float tmp1, tmp2, tmp3, tmp4, tmp5, tmp6, tmp7, tmp8;
 
-  // int k1;
-  // int m1, m2, m3, m4, m5, m6, m7, m8;
-  // int ks1;
-  // int ms1, ms2, ms3, ms4, ms5, ms6, ms7, ms8;
+//   // int k1;
+//   // int m1, m2, m3, m4, m5, m6, m7, m8;
+//   // int ks1;
+//   // int ms1, ms2, ms3, ms4, ms5, ms6, ms7, ms8;
 
-  // #pragma unroll
-  for(i = 0; i < gr_load; i++){
-    l = ls[wg];         // wg = wgID + (i * #wg);
-    k = kss[wg];
-    wg += gr;
-    ks = (k * (k-1)) / 2;
-    // #pragma unroll 8
-    for(j = 0; j < it_load; j++){
-      r = rs[ii];       // ii = (wgID * wgSIZE) + (j + (i * it_load) * #wg * wgSIZE) + localID;
-      m = mss[ii];
-      t = ts[ii];
+//   // #pragma unroll
+//   for(i = 0; i < gr_load; i++){
+//     l = ls[wg];         // wg = wgID + (i * #wg);
+//     k = kss[wg];
+//     wg += gr;
+//     ks = (k * (k-1)) / 2;
+//     // #pragma unroll 8
+//     for(j = 0; j < it_load; j++){
+//       r = rs[ii];       // ii = (wgID * wgSIZE) + (j + (i * it_load) * #wg * wgSIZE) + localID;
+//       m = mss[ii];
+//       t = ts[ii];
 
-      ms = (m * (m-1)) / 2;
-      n = (l + r) / (ks + ms);
-      d = (t - l - r) / (k * m) + den_off;
-      tmpW = n / d;
+//       ms = (m * (m-1)) / 2;
+//       n = (l + r) / (ks + ms);
+//       d = (t - l - r) / (k * m) + den_off;
+//       tmpW = n / d;
 
-      if(tmpW > maxW){
-        maxW = tmpW;
-        maxI = ii;
-      }
-      // ii += gs;
-      ii += gs * gr;
-    }
-  // for(i = 0; i < gr_load; i++){
-  //   l1 = ls[wg];         // wg = wgID + (i * #wg);
-  //   k1 = kss[wg];
-  //   wg += gr;
-  //   ks1 = (k1 * (k1-1)) / 2;
-  //   for(j = 0; j+lf-1 < it_load; j+=lf){
-  //     r1 = rs[ii    ];
-  //     r2 = rs[ii + 1];
-  //     r3 = rs[ii + 2];
-  //     r4 = rs[ii + 3];
-  //     r5 = rs[ii + 4];
-  //     r6 = rs[ii + 5];
-  //     r7 = rs[ii + 6];
-  //     r8 = rs[ii + 7];
-  //     m1 = mss[ii    ];
-  //     m2 = mss[ii + 1];
-  //     m3 = mss[ii + 2];
-  //     m4 = mss[ii + 3];
-  //     m5 = mss[ii + 4];
-  //     m6 = mss[ii + 5];
-  //     m7 = mss[ii + 6];
-  //     m8 = mss[ii + 7];
-  //     t1 = ts[ii    ];
-  //     t2 = ts[ii + 1];
-  //     t3 = ts[ii + 2];
-  //     t4 = ts[ii + 3];
-  //     t5 = ts[ii + 4];
-  //     t6 = ts[ii + 5];
-  //     t7 = ts[ii + 6];
-  //     t8 = ts[ii + 7];
-  //     ii += lf * gs * gr;
+//       if(tmpW > maxW){
+//         maxW = tmpW;
+//         maxI = ii;
+//       }
+//       // ii += gs;
+//       ii += gs * gr;
+//     }
+//   // for(i = 0; i < gr_load; i++){
+//   //   l1 = ls[wg];         // wg = wgID + (i * #wg);
+//   //   k1 = kss[wg];
+//   //   wg += gr;
+//   //   ks1 = (k1 * (k1-1)) / 2;
+//   //   for(j = 0; j+lf-1 < it_load; j+=lf){
+//   //     r1 = rs[ii    ];
+//   //     r2 = rs[ii + 1];
+//   //     r3 = rs[ii + 2];
+//   //     r4 = rs[ii + 3];
+//   //     r5 = rs[ii + 4];
+//   //     r6 = rs[ii + 5];
+//   //     r7 = rs[ii + 6];
+//   //     r8 = rs[ii + 7];
+//   //     m1 = mss[ii    ];
+//   //     m2 = mss[ii + 1];
+//   //     m3 = mss[ii + 2];
+//   //     m4 = mss[ii + 3];
+//   //     m5 = mss[ii + 4];
+//   //     m6 = mss[ii + 5];
+//   //     m7 = mss[ii + 6];
+//   //     m8 = mss[ii + 7];
+//   //     t1 = ts[ii    ];
+//   //     t2 = ts[ii + 1];
+//   //     t3 = ts[ii + 2];
+//   //     t4 = ts[ii + 3];
+//   //     t5 = ts[ii + 4];
+//   //     t6 = ts[ii + 5];
+//   //     t7 = ts[ii + 6];
+//   //     t8 = ts[ii + 7];
+//   //     ii += lf * gs * gr;
 
-  //     ms1 = (m1 * (m1-1)) / 2;
-  //     ms2 = (m2 * (m2-1)) / 2;
-  //     ms3 = (m3 * (m3-1)) / 2;
-  //     ms4 = (m4 * (m4-1)) / 2;
-  //     ms5 = (m5 * (m5-1)) / 2;
-  //     ms6 = (m6 * (m6-1)) / 2;
-  //     ms7 = (m7 * (m7-1)) / 2;
-  //     ms8 = (m8 * (m8-1)) / 2;
+//   //     ms1 = (m1 * (m1-1)) / 2;
+//   //     ms2 = (m2 * (m2-1)) / 2;
+//   //     ms3 = (m3 * (m3-1)) / 2;
+//   //     ms4 = (m4 * (m4-1)) / 2;
+//   //     ms5 = (m5 * (m5-1)) / 2;
+//   //     ms6 = (m6 * (m6-1)) / 2;
+//   //     ms7 = (m7 * (m7-1)) / 2;
+//   //     ms8 = (m8 * (m8-1)) / 2;
 
-  //     n1 = (l1 + r1) / (ks1 + ms1);
-  //     n2 = (l1 + r2) / (ks1 + ms2);
-  //     n3 = (l1 + r3) / (ks1 + ms3);
-  //     n4 = (l1 + r4) / (ks1 + ms4);
-  //     n5 = (l1 + r5) / (ks1 + ms5);
-  //     n6 = (l1 + r6) / (ks1 + ms6);
-  //     n7 = (l1 + r7) / (ks1 + ms7);
-  //     n8 = (l1 + r8) / (ks1 + ms8);
+//   //     n1 = (l1 + r1) / (ks1 + ms1);
+//   //     n2 = (l1 + r2) / (ks1 + ms2);
+//   //     n3 = (l1 + r3) / (ks1 + ms3);
+//   //     n4 = (l1 + r4) / (ks1 + ms4);
+//   //     n5 = (l1 + r5) / (ks1 + ms5);
+//   //     n6 = (l1 + r6) / (ks1 + ms6);
+//   //     n7 = (l1 + r7) / (ks1 + ms7);
+//   //     n8 = (l1 + r8) / (ks1 + ms8);
 
-  //     d1 = (t1 - l1 - r1) / (k1 * m1) + den_off;
-  //     d2 = (t2 - l1 - r2) / (k1 * m2) + den_off;
-  //     d3 = (t3 - l1 - r3) / (k1 * m3) + den_off;
-  //     d4 = (t4 - l1 - r4) / (k1 * m4) + den_off;
-  //     d5 = (t5 - l1 - r5) / (k1 * m5) + den_off;
-  //     d6 = (t6 - l1 - r6) / (k1 * m6) + den_off;
-  //     d7 = (t7 - l1 - r7) / (k1 * m7) + den_off;
-  //     d8 = (t8 - l1 - r8) / (k1 * m8) + den_off;
+//   //     d1 = (t1 - l1 - r1) / (k1 * m1) + den_off;
+//   //     d2 = (t2 - l1 - r2) / (k1 * m2) + den_off;
+//   //     d3 = (t3 - l1 - r3) / (k1 * m3) + den_off;
+//   //     d4 = (t4 - l1 - r4) / (k1 * m4) + den_off;
+//   //     d5 = (t5 - l1 - r5) / (k1 * m5) + den_off;
+//   //     d6 = (t6 - l1 - r6) / (k1 * m6) + den_off;
+//   //     d7 = (t7 - l1 - r7) / (k1 * m7) + den_off;
+//   //     d8 = (t8 - l1 - r8) / (k1 * m8) + den_off;
 
-  //     tmp1 = n1 / d1;
-  //     tmp2 = n2 / d2;
-  //     tmp3 = n3 / d3;
-  //     tmp4 = n4 / d4;
-  //     tmp5 = n5 / d5;
-  //     tmp6 = n6 / d6;
-  //     tmp7 = n7 / d7;
-  //     tmp8 = n8 / d8;
+//   //     tmp1 = n1 / d1;
+//   //     tmp2 = n2 / d2;
+//   //     tmp3 = n3 / d3;
+//   //     tmp4 = n4 / d4;
+//   //     tmp5 = n5 / d5;
+//   //     tmp6 = n6 / d6;
+//   //     tmp7 = n7 / d7;
+//   //     tmp8 = n8 / d8;
 
-  //     if(tmp1 > maxW){
-  //       maxW = tmp1;
-  //       maxI = ii - lf * gs * gr;
-  //     }
-  //     if(tmp2 > maxW){
-  //       maxW = tmp2;
-  //       maxI = ii - lf * gs * gr + 1;
-  //     }
-  //     if(tmp3 > maxW){
-  //       maxW = tmp3;
-  //       maxI = ii - lf * gs * gr + 2;
-  //     }
-  //     if(tmp4 > maxW){
-  //       maxW = tmp4;
-  //       maxI = ii - lf * gs * gr + 3;
-  //     }
-  //     if(tmp5 > maxW){
-  //       maxW = tmp5;
-  //       maxI = ii - lf * gs * gr + 4;
-  //     }
-  //     if(tmp6 > maxW){
-  //       maxW = tmp6;
-  //       maxI = ii - lf * gs * gr + 5;
-  //     }
-  //     if(tmp7 > maxW){
-  //       maxW = tmp7;
-  //       maxI = ii - lf * gs * gr + 6;
-  //     }
-  //     if(tmp8 > maxW){
-  //       maxW = tmp8;
-  //       maxI = ii - lf * gs * gr + 7;
-  //     }
-  //   }
-  //   for(/*emp*/;j<it_load;j++){
-  //     r1 = rs[ii];       // ii = (wgID * wgSIZE) + (j + (i * it_load) * #wg * wgSIZE) + localID;
-  //     m1 = mss[ii];
-  //     t1 = ts[ii];
-  //     // ii += gs;
-  //     ii += gs * gr;
+//   //     if(tmp1 > maxW){
+//   //       maxW = tmp1;
+//   //       maxI = ii - lf * gs * gr;
+//   //     }
+//   //     if(tmp2 > maxW){
+//   //       maxW = tmp2;
+//   //       maxI = ii - lf * gs * gr + 1;
+//   //     }
+//   //     if(tmp3 > maxW){
+//   //       maxW = tmp3;
+//   //       maxI = ii - lf * gs * gr + 2;
+//   //     }
+//   //     if(tmp4 > maxW){
+//   //       maxW = tmp4;
+//   //       maxI = ii - lf * gs * gr + 3;
+//   //     }
+//   //     if(tmp5 > maxW){
+//   //       maxW = tmp5;
+//   //       maxI = ii - lf * gs * gr + 4;
+//   //     }
+//   //     if(tmp6 > maxW){
+//   //       maxW = tmp6;
+//   //       maxI = ii - lf * gs * gr + 5;
+//   //     }
+//   //     if(tmp7 > maxW){
+//   //       maxW = tmp7;
+//   //       maxI = ii - lf * gs * gr + 6;
+//   //     }
+//   //     if(tmp8 > maxW){
+//   //       maxW = tmp8;
+//   //       maxI = ii - lf * gs * gr + 7;
+//   //     }
+//   //   }
+//   //   for(/*emp*/;j<it_load;j++){
+//   //     r1 = rs[ii];       // ii = (wgID * wgSIZE) + (j + (i * it_load) * #wg * wgSIZE) + localID;
+//   //     m1 = mss[ii];
+//   //     t1 = ts[ii];
+//   //     // ii += gs;
+//   //     ii += gs * gr;
 
-  //     ms1 = (m1 * (m1-1)) / 2;
-  //     n1 = (l1 + r1) / (ks1 + ms1);
-  //     d1 = (t1 - l1 - r1) / (k1 * m1) + den_off;
-  //     tmp1 = n1 / d1;
+//   //     ms1 = (m1 * (m1-1)) / 2;
+//   //     n1 = (l1 + r1) / (ks1 + ms1);
+//   //     d1 = (t1 - l1 - r1) / (k1 * m1) + den_off;
+//   //     tmp1 = n1 / d1;
 
-  //     if(tmp1 > maxW){
-  //       maxW = tmp1;
-  //       maxI = ii - gs * gr;
-  //     }
-  //   }
-  }
-  omega_global[ig] = maxW;
-  index_global[ig] = maxI;
-}
+//   //     if(tmp1 > maxW){
+//   //       maxW = tmp1;
+//   //       maxI = ii - gs * gr;
+//   //     }
+//   //   }
+//   }
+//   omega_global[ig] = maxW;
+//   index_global[ig] = maxI;
+// }
 
-__kernel void omega16 (
-    __global float *omega_global, __global unsigned int *index_global, __constant float *ls,
-    __constant float *rs, __constant float *ts, __constant int *kss, 
-    __constant int *mss, int gr_load, int it_load, __local float *lls, __local int *lkss
-) {
-  unsigned int wg = get_group_id(0);
-  unsigned int il = get_local_id(0);
-  unsigned int gs = get_local_size(0);
-  unsigned int ig = get_global_id(0);
-  unsigned int gr = get_num_groups(0);
-  // unsigned int ii = wg * gs * (gr_load * it_load) + il;
-  unsigned int ii = ig;  //wg * gs + il;
-  unsigned int reads = gr_load / gs + 1;
-  unsigned int st = wg * gs * reads;
+// __kernel void omega16 (
+//     __global float *omega_global, __global unsigned int *index_global, __constant float *ls,
+//     __constant float *rs, __constant float *ts, __constant int *kss, 
+//     __constant int *mss, int gr_load, int it_load, __local float *lls, __local int *lkss
+// ) {
+//   unsigned int wg = get_group_id(0);
+//   unsigned int il = get_local_id(0);
+//   unsigned int gs = get_local_size(0);
+//   unsigned int ig = get_global_id(0);
+//   unsigned int gr = get_num_groups(0);
+//   // unsigned int ii = wg * gs * (gr_load * it_load) + il;
+//   unsigned int ii = ig;  //wg * gs + il;
+//   unsigned int reads = gr_load / gs + 1;
+//   unsigned int st = wg * gs * reads;
 
-  const float den_off = 0.00001f;
-  unsigned int maxI, i, j;
+//   const float den_off = 0.00001f;
+//   unsigned int maxI, i, j;
 
-  float l, r, t, n, d, tmpW, maxW = 0.0f;
-  int k, m, ks, ms;
+//   float l, r, t, n, d, tmpW, maxW = 0.0f;
+//   int k, m, ks, ms;
 
-  // for(i = 0; i < reads; i++){
-  //   lls[il] = ls[st + il];
-  //   lkss[il] = kss[st + il];
-  //   il += gs;
-  // }
+//   // for(i = 0; i < reads; i++){
+//   //   lls[il] = ls[st + il];
+//   //   lkss[il] = kss[st + il];
+//   //   il += gs;
+//   // }
 
-  lls[il] = ls[st + il];
-  lkss[il] = kss[st + il];
+//   lls[il] = ls[st + il];
+//   lkss[il] = kss[st + il];
 
-  // Ensure writes have completed:
-  // barrier(CLK_LOCAL_MEM_FENCE);   // Is stated in optimization guide since work group size is > 64
+//   // Ensure writes have completed:
+//   // barrier(CLK_LOCAL_MEM_FENCE);   // Is stated in optimization guide since work group size is > 64
 
-  for(i = 0; i < gr_load; i++){
-    l = lls[i];
-    k = lkss[i];
-    ks = (k * (k-1)) / 2;
-    for(j = 0; j < it_load; j++){
-      r = rs[ii];       // ii = (wgID * wgSIZE) + (j + (i * it_load) * #wg * wgSIZE) + localID;
-      m = mss[ii];
-      t = ts[ii];
-      // ii += gs;
-      ii += gs * gr;
+//   for(i = 0; i < gr_load; i++){
+//     l = lls[i];
+//     k = lkss[i];
+//     ks = (k * (k-1)) / 2;
+//     for(j = 0; j < it_load; j++){
+//       r = rs[ii];       // ii = (wgID * wgSIZE) + (j + (i * it_load) * #wg * wgSIZE) + localID;
+//       m = mss[ii];
+//       t = ts[ii];
+//       // ii += gs;
+//       ii += gs * gr;
 
-      ms = (m * (m-1)) / 2;
-      n = (l + r) / (ks + ms);
-      d = (t - l - r) / (k * m) + den_off;
-      tmpW = n / d;
+//       ms = (m * (m-1)) / 2;
+//       n = (l + r) / (ks + ms);
+//       d = (t - l - r) / (k * m) + den_off;
+//       tmpW = n / d;
 
-      if(tmpW > maxW){
-        maxW = tmpW;
-        maxI = ii - gs;
-      }
-    }
-  }
-  omega_global[ig] = maxW;
-  index_global[ig] = maxI;
+//       if(tmpW > maxW){
+//         maxW = tmpW;
+//         maxI = ii - gs;
+//       }
+//     }
+//   }
+//   omega_global[ig] = maxW;
+//   index_global[ig] = maxI;
 
-}
+// }
 
 __kernel void omega17 (
     __global float *omega_global, __global unsigned int *index_global, __constant float *lr, 
