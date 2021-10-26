@@ -1711,8 +1711,8 @@ int main(int argc, char** argv)
 
 					time2 = gettime();
 					// for(j=0;j<iter;j++){
-						computeOmegas_gpu(alignment, omega, cvw_i, functionData,NULL);
-						// computeOmegas (alignment, omega, cvw_i, functionData,NULL);
+						// computeOmegas_gpu(alignment, omega, cvw_i, functionData,NULL);
+						computeOmegas (alignment, omega, cvw_i, functionData,NULL);
 						// computeOmegaValues_gpu4(omega, cvw_i, alignment->correlationMatrix, NULL, omegas, LSs, RSs, TSs, ks, ms);
 					// }
 					time3 = gettime();
