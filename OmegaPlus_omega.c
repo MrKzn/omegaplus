@@ -4891,7 +4891,7 @@ void gpu_init(void)
     err=clGetDeviceIDs(platforms[0], CL_DEVICE_TYPE_GPU, num_devices, devices, NULL);
     printCLErr(err,__LINE__,__FILE__);
 
-	int gpu = 1;
+	int gpu = 0;
    
     context=clCreateContext(NULL, 1, &devices[gpu], NULL, NULL, &err);
     printCLErr(err,__LINE__,__FILE__);
