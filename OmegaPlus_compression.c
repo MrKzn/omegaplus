@@ -222,6 +222,9 @@ void compressAlignmentBIN(alignment_struct *alignment, unsigned int * BCtable)
 			
 			compEntry = compEntry<<1|tmpEntry;
 			compValid = compValid<<1|tmpValid;
+
+			// qLD ADDED
+			accum += tmpEntry;	// Alternative to using bitcount
 		
 			l++;
 			if(l==compLimit)
@@ -229,10 +232,10 @@ void compressAlignmentBIN(alignment_struct *alignment, unsigned int * BCtable)
 				l=0;
 			
 				alignment->compressedArrays[0][m]=compEntry; // Vector of Ones
-				#ifdef _SHARED
-				// qLD ADDED
-				accum += precomputed16_bitcount (compEntry);
-				#endif
+				// #ifdef _SHARED
+				// // qLD ADDED
+				// accum += precomputed16_bitcount (compEntry);
+				// #endif
 				
 				if(alignment->states==3)
 					alignment->compressedArrays[1][m]=compValid; // Valid Vector
