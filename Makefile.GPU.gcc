@@ -3,17 +3,17 @@
 
 CC = gcc
 
-CFLAGS = -O3 -Wall -D_SHARED #-D_UNROLL
+CFLAGS = -O3 -Wall -D_SHARED -D_USE_GPU #-D_UNROLL
 
-LIBRARIES = -lm
+LIBRARIES = -lm -lOpenCL
 
-EXECNAME = OmegaPlus
+EXECNAME = OmegaPlus-GPU
 
-OBJS = OmegaPlus.o OmegaPlus_input.o OmegaPlus_compression.o OmegaPlus_correlation.o OmegaPlus_omega.o
+OBJS = OmegaPlus.o OmegaPlus_input.o OmegaPlus_compression.o OmegaPlus_correlation.o OmegaPlus_omega.o OmegaPlus_gpu.o
 
 all: $(EXECNAME)
 
-OmegaPlus : $(OBJS)
+OmegaPlus-GPU : $(OBJS)
 	$(CC) $(CFLAGS) -o $(EXECNAME) $(OBJS) $(LIBRARIES)
 
 OmegaPlus.o: OmegaPlus.c 
@@ -30,6 +30,9 @@ OmegaPlus_correlation.o: OmegaPlus_correlation.c
 
 OmegaPlus_omega.o: OmegaPlus_omega.c 
 	$(CC) $(CFLAGS) -c OmegaPlus_omega.c
+	
+OmegaPlus_gpu.o: OmegaPlus_gpu.c 
+	$(CC) $(CFLAGS) -c OmegaPlus_gpu.c
 
 
 clean:

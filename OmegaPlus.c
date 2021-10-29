@@ -810,9 +810,11 @@ int main(int argc, char** argv)
 	    lvw_i, // last valid w
 	    cvw_i, // current valid w
 #ifndef _USE_OPENMP_GENERIC
-	    firstRowToCopy = -1, 
+#ifndef _USE_GPU
+		firstRowToCopy = -1, 
 	    firstRowToCompute = 1,
 	    firstRowToAdd = 2,
+#endif
 #endif
 #endif
 	    matrixSizeMax = 0,
@@ -976,8 +978,10 @@ int main(int argc, char** argv)
 #ifdef _SHARED
 	compute_bits_in_16bits();
 #endif
-	if(gpu)			
-		gpu_init();
+
+#ifdef _USE_GPU
+	gpu_init();
+#endif
 
 	srand(seed);
 
@@ -1021,6 +1025,12 @@ int main(int argc, char** argv)
 #endif
 */
 
+#ifdef _USE_GPU
+		if(alignment->states!=BINARY && alignment->states!=BINARY_WITH_GAPS){
+			printf("\n\nGPU acceleration is only available with binary data, try the -binary command line parameter");
+			break;
+		}
+#endif
 
 		if(reports==1)
 		{
@@ -1055,10 +1065,14 @@ int main(int argc, char** argv)
 				fprintf(fpReport, "\n");
 		}
 
-		// qLD added
+// qLD added
+#ifdef _USE_GPU
 		unsigned int * BCtable = (unsigned int *)malloc(alignment->segsites * sizeof(unsigned int));
 
-		    compressAlignment(alignment, BCtable);
+		    compressAlignment_gpu(alignment, BCtable);
+#else
+			compressAlignment(alignment);
+#endif
 		    
 		    if (fileFormat==MS_FORMAT || fileFormat == MACS_FORMAT)
 		      checkSNIPPositions(fpWarnings, alignment, alignmentIndex);
@@ -1229,10 +1243,6 @@ int main(int argc, char** argv)
 	lvw_i=-1;
 	cvw_i=findNextValidOmega(omega, lvw_i, grid);
 
-	// qLD_res = correlate(alignment->compressedArrays[0],alignment->segsites,alignment->siteSize,SNP_GROUP_SIZE);
-
-	// qLD_res = correlate_gpu(alignment->compressedArrays[0],alignment->segsites,alignment->siteSize,SNP_GROUP_SIZE);
-
 	while(validGridP(cvw_i,grid))
 	{
 
@@ -1346,7 +1356,7 @@ int main(int argc, char** argv)
 				prev_finishIndex_tmp = cur_finishIndex_tmp;
 			}
 
-			dp_on_tiles_overlap_ptr (first_group_index, last_group_index, workgroup_map_ptr, overlap_workgroup_map_ptr, overlap, first_group_index, alignment,leftSNPindex, rightSNPindex, qLD_res);
+			dp_on_tiles_overlap_ptr (first_group_index, last_group_index, workgroup_map_ptr, overlap_workgroup_map_ptr, overlap, first_group_index, alignment,leftSNPindex, rightSNPindex);
 
 
 
@@ -1545,7 +1555,7 @@ int main(int argc, char** argv)
 				prev_finishIndex_tmp = cur_finishIndex_tmp;
 			}
 
-			dp_on_tiles_overlap_ptr (first_group_index, last_group_index, workgroup_map_ptr, overlap_workgroup_map_ptr, overlap, first_group_index, alignment,leftSNPindex, rightSNPindex, qLD_res);
+			dp_on_tiles_overlap_ptr (first_group_index, last_group_index, workgroup_map_ptr, overlap_workgroup_map_ptr, overlap, first_group_index, alignment,leftSNPindex, rightSNPindex);
 
 
 
@@ -1675,9 +1685,10 @@ int main(int argc, char** argv)
 		free(genGridList);
 #else
 
-			// qLD
-			if(gpu)
-				qLD_res = correlate_gpu(alignment->compressedArrays[0], BCtable, alignment->segsites, alignment->siteSize, alignment->sequences);
+// GPU
+#ifdef _USE_GPU
+			qLD_res = correlate_gpu(alignment->compressedArrays[0], BCtable, alignment->segsites, alignment->siteSize, alignment->sequences);
+
 			
 		    alignment->correlationMatrix = createCorrelationMatrix(alignment->correlationMatrix,matrixSizeMax);
 		    
@@ -1688,29 +1699,47 @@ int main(int argc, char** argv)
 
 				if(validGridP(cvw_i,grid))
 				{
-					overlapCorrelationMatrixAdditions (alignment, omega, lvw_i, cvw_i, 
-									&firstRowToCopy, &firstRowToCompute, &firstRowToAdd);
-					
-					shiftCorrelationMatrixValues (omega, lvw_i, cvw_i, firstRowToCopy, alignment->correlationMatrix);
+					computeCorrelationMatrixPairwise_gpu (alignment, omega, cvw_i, functionData, NULL,NULL, qLD_res);
 
-					if(gpu)
-						computeCorrelationMatrixPairwiseGPU (alignment, omega, cvw_i, firstRowToCompute, functionData, NULL,NULL, qLD_res);
-					else
-						computeCorrelationMatrixPairwise (alignment, omega, cvw_i, firstRowToCompute, functionData, NULL,NULL);
+					applyCorrelationMatrixAdditions_gpu (omega, cvw_i,alignment->correlationMatrix);
 
-					applyCorrelationMatrixAdditions (omega, cvw_i,firstRowToAdd,alignment->correlationMatrix);
-
-					if(gpu)
-						computeOmegas_gpu(alignment, omega, cvw_i, functionData,NULL);
-					else
-						computeOmegas (alignment, omega, cvw_i, functionData,NULL);
+					computeOmegas_gpu(alignment, omega, cvw_i, functionData,NULL);
 					
 					lvw_i = cvw_i;
 				}
 
 				appendOmegaResultToFile (alignment, omega, i, i+1, fpReport, resultType);
 		    }
+#else
+		    
+		    alignment->correlationMatrix = createCorrelationMatrix(alignment->correlationMatrix,matrixSizeMax);
+		    
+		    lvw_i=-1;
+		    
+		    for(i=0;i<grid;i++)
+		      {
+			cvw_i=findNextValidOmega(omega, lvw_i, grid);
+			
+			if(validGridP(cvw_i,grid))
+			  {		
+			    overlapCorrelationMatrixAdditions (alignment, omega, lvw_i, cvw_i, 
+							       &firstRowToCopy, &firstRowToCompute, &firstRowToAdd);
+			    
+			    shiftCorrelationMatrixValues (omega, lvw_i, cvw_i, firstRowToCopy, alignment->correlationMatrix);
+			    
+			    computeCorrelationMatrixPairwise (alignment, omega, cvw_i, firstRowToCompute, functionData, NULL,NULL);					
+			    
+			    applyCorrelationMatrixAdditions (omega, cvw_i,firstRowToAdd,alignment->correlationMatrix);
+			    
+			    computeOmegas (alignment, omega, cvw_i, functionData,NULL);
+			    
+			    lvw_i = cvw_i;
+			  }
+			
+			appendOmegaResultToFile (alignment, omega, i, i+1, fpReport, resultType);
+		      }			
 #endif		    
+#endif
 #endif
 
 	    }
@@ -1741,8 +1770,9 @@ int main(int argc, char** argv)
 		alignmentIndex++;	
 	}
 
-	if(gpu)
+#ifdef _USE_GPU
 		gpu_release();
+#endif
 
 #ifdef _USE_PTHREADS
 #ifndef _USE_PTHREADS_MEMINT

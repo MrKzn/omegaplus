@@ -822,8 +822,134 @@ float * correlate_gpu(uint32_t * tableA,
 	return results;
 }
 
+/*   ---  GPU Compression functions  ---   */
+void initializeAlignmentCompression_gpu (alignment_struct * alignment)
+{
+	int i, 
+            size= alignment->states,
+	    div = alignment->sequences / REGISTER_WIDTH,
+	    mod = alignment->sequences % REGISTER_WIDTH;
+	
+	alignment->siteSize = mod==0?div:div+1;
+
+	alignment->compressedSize = alignment->siteSize * alignment->segsites; 
+
+	if (alignment->states==2 || alignment->states==3)
+		size--;		
+		
+	alignment->compressedArrays = malloc(sizeof(unsigned int *)*size);
+
+	for(i=0;i<size;i++)
+		alignment->compressedArrays[i] = malloc(sizeof(unsigned int)*alignment->compressedSize);	
+}
+
+void mapCharToCodeBIN_gpu (unsigned int * code, unsigned int * valid, char in)
+{
+	switch(in)
+	{
+		case ZERO: 
+			*code  = 0u;
+			*valid = 1u;
+			break;		
+		case ONE:
+			*code  = 1u;
+			*valid = 1u;
+			break;
+		case GAP:
+			*code  = 2u;
+			*valid = 0u;
+			break;
+		case UN:
+			*code  = 2u;
+			*valid = 0u;
+			break;
+		default:
+			assert(0);
+	}
+}
+
+void compressAlignmentBIN_gpu(alignment_struct *alignment, unsigned int * BCtable)
+{
+	int i,j,l,m,
+            compLimit,
+	    compLeft;
+	    
+	unsigned int tmpEntry, 
+		     tmpValid, 
+                     compEntry, 
+                     compValid; 
+
+	// qLD ADDED
+	unsigned int accum;
+	
+	initializeAlignmentCompression_gpu (alignment);
+	
+	m=0;
+	for(i=0;i<alignment->segsites;i++)
+	{		
+		accum = 0;
+		l=0;
+
+		compEntry = 0u;
+		compValid = 0u;
+
+		compLeft  = alignment->sequences;
+		compLimit = REGISTER_WIDTH;
+
+		if(compLeft<compLimit)
+			compLimit = compLeft;
+
+		for(j=0;j<alignment->sequences;j++)
+		{
+
+			mapCharToCodeBIN_gpu (&tmpEntry, &tmpValid, alignment->seqtable[j][i]);		
+			
+			compEntry = compEntry<<1|tmpEntry;
+			compValid = compValid<<1|tmpValid;
+		
+			// qLD ADDED
+			accum += tmpEntry;	// Alternative to using bitcount
+
+			l++;
+			if(l==compLimit)
+			{	
+				l=0;
+			
+				alignment->compressedArrays[0][m]=compEntry; // Vector of Ones
+				// #ifdef _SHARED
+				// // qLD ADDED
+				// accum += precomputed16_bitcount (compEntry);
+				// #endif
+				
+				if(alignment->states==3)
+					alignment->compressedArrays[1][m]=compValid; // Valid Vector
+				
+				m++;
+
+				compEntry = 0u;
+				compValid = 0u;	
+				
+				compLeft -= REGISTER_WIDTH;
+				compLimit = REGISTER_WIDTH;
+
+				if(compLeft<compLimit)
+					compLimit = compLeft;		
+			}			
+		}
+		BCtable[i] = accum;
+	}
+}
+
+void compressAlignment_gpu(alignment_struct *alignment, unsigned int * BCtable)
+{
+    if(alignment->states!=BINARY && alignment->states!=BINARY_WITH_GAPS)
+        return;
+
+    compressAlignmentBIN_gpu(alignment, BCtable);
+}
+
 /*   ---  GPU Correlation functions  ---   */
-void computeCorrelationsBINGPU(alignment_struct * alignment, omega_struct * omega, int omegaIndex, int firstRow, float * qLD_res)
+void computeCorrelationsBIN_gpu(alignment_struct * alignment, omega_struct * omega, int omegaIndex, float * qLD_res)
 {
 	assert(omega[omegaIndex].rightIndex>=omega[omegaIndex].leftIndex);
 	
@@ -834,7 +960,7 @@ void computeCorrelationsBINGPU(alignment_struct * alignment, omega_struct * omeg
 
 	int LinesToComputeTotal = omega[omegaIndex].rightIndex - omega[omegaIndex].leftIndex;
 
-	for(i=firstRow;i<=LinesToComputeTotal;i++)
+	for(i=1;i<=LinesToComputeTotal;i++)
 	{
 		for(j=i-1;j>=0;j--)
 		{
@@ -846,7 +972,7 @@ void computeCorrelationsBINGPU(alignment_struct * alignment, omega_struct * omeg
 	}	
 }
 
-void computeCorrelationsBINGAPSGPU(alignment_struct * alignment, omega_struct * omega, int omegaIndex, int firstRow, float * qLD_res)
+void computeCorrelationsBINGAPS_gpu(alignment_struct * alignment, omega_struct * omega, int omegaIndex, float * qLD_res)
 {
 	assert(omega[omegaIndex].rightIndex>=omega[omegaIndex].leftIndex);
 	
@@ -857,7 +983,7 @@ void computeCorrelationsBINGAPSGPU(alignment_struct * alignment, omega_struct * 
 
 	int LinesToComputeTotal = omega[omegaIndex].rightIndex - omega[omegaIndex].leftIndex;
 
-	for(i=firstRow;i<=LinesToComputeTotal;i++)
+	for(i=1;i<=LinesToComputeTotal;i++)
 	{
 		for(j=i-1;j>=0;j--)
 		{
@@ -869,17 +995,14 @@ void computeCorrelationsBINGAPSGPU(alignment_struct * alignment, omega_struct * 
 	}
 }
 
-void computeCorrelationMatrixPairwiseGPU(alignment_struct * alignment, omega_struct * omega, int omegaIndex, int firstRowIndex, void * threadData, cor_t ** myCorrelationMatrix, char * lookuptable, float * qLD_res)
+void computeCorrelationMatrixPairwise_gpu(alignment_struct * alignment, omega_struct * omega, int omegaIndex, void * threadData, cor_t ** myCorrelationMatrix, char * lookuptable, float * qLD_res)
 {
-
-	if (firstRowIndex==-1)
-		return;
 
 	switch(alignment->states)
 	{
-		case 2: computeCorrelationsBINGPU(alignment,omega,omegaIndex, firstRowIndex, qLD_res); 
+		case 2: computeCorrelationsBIN_gpu(alignment,omega,omegaIndex, qLD_res); 
 			break;
-		case 3: computeCorrelationsBINGAPSGPU(alignment,omega,omegaIndex, firstRowIndex, qLD_res); 
+		case 3: computeCorrelationsBINGAPS_gpu(alignment,omega,omegaIndex, qLD_res); 
 			break;
 		case 4: printf("GPU LD calculation only works with binary data\n"); //computeCorrelationsDNA(alignment, omega, omegaIndex, firstRowIndex); 
 			break;
@@ -887,6 +1010,24 @@ void computeCorrelationMatrixPairwiseGPU(alignment_struct * alignment, omega_str
 			break;
 		default: assert(0);
 	}	
+}
+
+void applyCorrelationMatrixAdditions_gpu (omega_struct * omega, int omegaIndex, cor_t ** correlationMatrix)
+{
+	int i,j;
+	
+	int LinesToUpdateTotal = omega[omegaIndex].rightIndex - omega[omegaIndex].leftIndex; 
+
+	for(i=2;i<=LinesToUpdateTotal;i++)
+	{
+		for(j=i-2;j>=0;j--)
+		{
+			correlationMatrix[i][j] =   correlationMatrix[i][j]  
+						  + correlationMatrix[i-1][j]  
+						  + correlationMatrix[i][j+1]  
+						  - correlationMatrix[i-1][j+1];
+		}
+	}
 }
 
 /*   ---  GPU general functions  ---   */

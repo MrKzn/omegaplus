@@ -293,7 +293,7 @@ int findFirstAlignment(alignment_struct *alignment, FILE *fp, FILE *fpInfo,int f
 int findNextAlignment(FILE *fp, int fileFormat);
 void freeAlignment(alignment_struct *alignment, int matrixSizeMax);
 int readAlignment(FILE *fp, alignment_struct *alignment, int imputeG, int imputeN, int binary, int format, FILE * fpInfo, int filterOut, double maf, int readAlignment);
-void compressAlignment(alignment_struct *alignment, unsigned int * BCtable);
+void compressAlignment(alignment_struct *alignment);
 #ifdef _USE_PTHREADS
 void startThreadOperations(threadData_t * threadData, int operation);
 void correlationThread(threadData_t * currentThread);
@@ -321,7 +321,7 @@ int get_SNP_groupID(int SNP_index);
 float get_Mem_GroupSize();
 void update_workgroup_map_ptr(float *** workgroup_map_ptr, int start, int finish, int first_group_index);
 void update_workgroup_map_partial_ptr(float *** workgroup_map_ptr, int start, int finish, int prev_start, int prev_finish, int first_group_index);
-void dp_on_tiles_overlap_ptr (int first_DP_tile, int last_DP_tile, float *** workgroup_map_ptr, float *** overlap_workgroup_map_ptr, int overlap, int first_group_index, alignment_struct * alignment, int leftSNPindex, int rightSNPindex, uint32_t * qLD_res);
+void dp_on_tiles_overlap_ptr (int first_DP_tile, int last_DP_tile, float *** workgroup_map_ptr, float *** overlap_workgroup_map_ptr, int overlap, int first_group_index, alignment_struct * alignment, int leftSNPindex, int rightSNPindex);
 
 cor_t computeCorrelationValueBIN(int sequences, unsigned int * accumXvec);
 cor_t computeCorrelationValueDNA(int sequences, cor_t pairwiseCorrelationMatrix[4][4], unsigned int * valid);
@@ -482,8 +482,15 @@ void mlt_gpu(unsigned int m,
          inputDataType_x32 *A,
          inputDataType_x32* tableA);
 
-void computeCorrelationMatrixPairwiseGPU(alignment_struct * alignment, omega_struct * omega, int omegaIndex, int firstRowIndex, void * threadData, cor_t ** myCorrelationMatrix, char * lookuptable, float * qLD_res);
+/*   ---  GPU Compression functions  ---   */
+void compressAlignment_gpu(alignment_struct *alignment, unsigned int * BCtable);
 
+/*   ---  GPU Correlation functions  ---   */
+void computeCorrelationMatrixPairwise_gpu(alignment_struct * alignment, omega_struct * omega, int omegaIndex, void * threadData, cor_t ** myCorrelationMatrix, char * lookuptable, float * qLD_res);
+
+void applyCorrelationMatrixAdditions_gpu (omega_struct * omega, int omegaIndex, cor_t ** correlationMatrix);
+
+/*   ---  GPU Omega functions  ---   */
 void computeOmegas_gpu (alignment_struct * alignment, omega_struct * omega, int omegaIndex, void * threadData, cor_t ** correlationMatrix);
 
 // void computeOmegaValues_gpuF (omega_struct * omega, int omegaIndex, cor_t ** correlationMatrix, void * threadData);

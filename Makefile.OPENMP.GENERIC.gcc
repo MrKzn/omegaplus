@@ -3,9 +3,9 @@
 
 CC = gcc
 
-CFLAGS = -O3 -Wall -D_SHARED -D_USE_OPENMP_GENERIC -g -fopenmp -std=c99  #-D_UNROLL
+CFLAGS = -O3 -Wall -D_SHARED -D_USE_OPENMP_GENERIC -g -fopenmp -std=c99 #-D_UNROLL
 
-LIBRARIES = -lm -lOpenCL
+LIBRARIES = -lm  
 
 EXECNAME = OmegaPlus-G
 
@@ -32,7 +32,7 @@ OmegaPlus_omega.o: OmegaPlus_omega.c
 	$(CC) $(CFLAGS) -c OmegaPlus_omega.c
 
 OmegaPlus_generic.o: OmegaPlus_generic.c 
-	$(CC) $(CFLAGS) -c OmegaPlus_generic.c 
+	$(CC) $(CFLAGS) -c OmegaPlus_generic.c
 
 
 clean:
