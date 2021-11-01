@@ -338,70 +338,28 @@ unsigned int precomputed16_bitcount (unsigned int n);
 // General ADDED
 double gettime(void);
 
-// qLD ADDED
-enum gemm_block_sizes_e
-{
-    BLOCK_NC=4032,
-    BLOCK_KC=256,
-    BLOCK_MC=72,
-    BLOCK_NR=6,
-    BLOCK_MR=8
-};
+#ifdef _USE_GPU
+/*   ---  GPU Compression functions  ---   */
+void compressAlignment_gpu(alignment_struct *alignment, unsigned int * BCtable);
 
-typedef uint64_t inputDataType_x64;
-typedef uint32_t inputDataType_x32;
-void Pack_A(uint32_t *A,
-            unsigned int lda,
-            uint32_t *A_pack,
-            unsigned int m,
-            unsigned int k);
+/*   ---  GPU Correlation functions  ---   */
+void computeCorrelationMatrixPairwise_gpu(alignment_struct * alignment, omega_struct * omega, int omegaIndex, void * threadData, cor_t ** myCorrelationMatrix, char * lookuptable, float * qLD_res);
+void applyCorrelationMatrixAdditions_gpu (omega_struct * omega, int omegaIndex, cor_t ** correlationMatrix);
 
-void Pack_B(uint32_t *B,
-            unsigned int ldb,
-            uint32_t *B_pack,
-            unsigned int k,
-            unsigned int n);
-
-void dgemm_ref(int k,
-               int mr_alg,
-               int nr_alg,
-               uint32_t alpha,
-               uint32_t* restrict a,
-               uint32_t* restrict b,
-               uint32_t* restrict c,
-               int rs_c,
-               int cs_c);
-
-void gemm(unsigned int m,
-          unsigned int n,
-          unsigned int k,
-		  uint32_t alphap,
-          uint32_t * A,
-          unsigned int lda,
-          uint32_t * B,
-          unsigned int ldb,
-          uint32_t * C,
-          unsigned int ldc,
-          void * Ac_pack_v,
-          void * Bc_pack_v);
-
-void mlt(unsigned int m,
-         unsigned int k,
-         uint32_t* A,
-         uint32_t* tableA);
-
-uint32_t * correlate(uint32_t* tableA,
-               int tableAsize,
-               int compressed_snp_size,
-			   int group_size);
-
-// -- GENERAL OPENCL STUFF -- //
+/*   ---  GENERAL OPENCL  ---   */
 // macro define needed for deprecated warning
 #define CL_TARGET_OPENCL_VERSION 110
 #define CL_USE_DEPRECATED_OPENCL_1_2_APIS
 #include <CL/cl.h>
 
-// -- qLD OPENCL STUFF -- //
+void printCLErr(cl_int err,int line, char* file);
+void gpu_init(void);
+void gpu_release(void);
+
+/*   ---  qLD OPENCL  ---   */
+typedef uint64_t inputDataType_x64;
+typedef uint32_t inputDataType_x32;
+
 #define PROGRAM_FILE "gpu_kernel/blislike.cl"
 #define KERNEL_NAME "blis_like8x4"
 #define RESULTS_PART_SIZE_GPU 4 //2*2
@@ -423,7 +381,9 @@ unsigned int rs_c;
 // matrix, we mult by MC to get to the next row instead of the full "m".
 unsigned int cs_c;
 
-// -- OMEGA OPENCL STUFF -- //
+float * correlate_gpu(uint32_t * tableA, unsigned int * tableA_bitcount, int tableAsize, int compressed_snp_size, int snp_size);
+
+/*   ---  OMEGA OPENCL  ---   */
 #define OMEGA_NAME "omega3"
 // #define OMEGA_NAME "omega2"
 #define OMEGA_NAME2 "omega1"
@@ -441,60 +401,6 @@ size_t group_size;
 size_t work_items;
 cl_long max_omegas, max_LRkm, max_TS;
 
-void gpu_init(void);
-
-void gpu_release(void);
-
-float * correlate_gpu(uint32_t * tableA,
-				unsigned int * tableA_bitcount,
-				int tableAsize,
-				int compressed_snp_size,
-				int snp_size);
-
-void printCLErr(cl_int err,int line, char* file);
-
-void GPU_Pack_A(inputDataType_x32 *A,
-                unsigned int lda,
-                DOUBLE *A_pack,
-                unsigned int m,
-                unsigned int k);
-
-void GPU_Pack_B(inputDataType_x32 *B,
-                unsigned int ldb,
-                DOUBLE *B_pack,
-                unsigned int k,
-                unsigned int n);
-
-void gpu_gemm(unsigned int m,
-              unsigned int n,
-              unsigned int k,
-              inputDataType_x32 *A,
-              unsigned int lda,
-              inputDataType_x32 *B,
-              unsigned int ldb,
-              inputDataType_x32 * C,
-              unsigned int ldc,
-              void * Ac_pack_v,
-              void * Bc_pack_v);
-
-void mlt_gpu(unsigned int m,
-         unsigned int k,
-         inputDataType_x32 *A,
-         inputDataType_x32* tableA);
-
-/*   ---  GPU Compression functions  ---   */
-void compressAlignment_gpu(alignment_struct *alignment, unsigned int * BCtable);
-
-/*   ---  GPU Correlation functions  ---   */
-void computeCorrelationMatrixPairwise_gpu(alignment_struct * alignment, omega_struct * omega, int omegaIndex, void * threadData, cor_t ** myCorrelationMatrix, char * lookuptable, float * qLD_res);
-
-void applyCorrelationMatrixAdditions_gpu (omega_struct * omega, int omegaIndex, cor_t ** correlationMatrix);
-
-/*   ---  GPU Omega functions  ---   */
 void computeOmegas_gpu (alignment_struct * alignment, omega_struct * omega, int omegaIndex, void * threadData, cor_t ** correlationMatrix);
 
-// void computeOmegaValues_gpuF (omega_struct * omega, int omegaIndex, cor_t ** correlationMatrix, void * threadData);
-
-// void computeOmega_gpuF1(float * omegas, float * LR, int * km, float * T, int in_out_cnt, int inner_cnt, unsigned int total);
-
-// void computeOmega_gpuF2(float * omegas, unsigned int * indexes, float * LR, int * km, float * T, int in_out_cnt, int outer, int inner, unsigned int total);
+#endif
