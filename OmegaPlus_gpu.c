@@ -210,14 +210,16 @@ void computeOmegaValues_gpuF (omega_struct * omega, int omegaIndex, cor_t ** cor
 
 	rightMaxIndex = omega[omegaIndex].rightIndex - omega[omegaIndex].leftIndex;
 	
-	outer_work = outer_cnt = leftMinIndex - leftMaxIndex + 1;
-	inner_work = inner_cnt = rightMaxIndex - rightMinIndex + 1;
+	outer_cnt = leftMinIndex - leftMaxIndex + 1;
+	inner_cnt = rightMaxIndex - rightMinIndex + 1;
 	total = outer_cnt * inner_cnt;
 	
 	if(total > 20000)	// Threshold
 	{
-		outer_work += group_size - (outer_cnt & (group_size - 1));
-		inner_work += group_size - (inner_cnt & (group_size - 1));
+		// outer_work += group_size - (outer_cnt & (group_size - 1));
+        outer_work = (outer_cnt + group_size - 1) & -group_size;
+		// inner_work += group_size - (inner_cnt & (group_size - 1));
+        inner_work = (inner_cnt + group_size - 1) & -group_size;
 		work_total = outer_work * inner_work;
 		in_out_cnt = outer_work + inner_work;
 
