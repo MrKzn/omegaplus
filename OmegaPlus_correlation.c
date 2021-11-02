@@ -1116,8 +1116,8 @@ void computeCorrelationsBIN(alignment_struct * alignment, omega_struct * omega, 
 			s_i = i + omega[omegaIndex].leftIndex;
 			s_j = j + omega[omegaIndex].leftIndex;
 
-			// alignment->correlationMatrix[i][j] = computePairwiseCorrelationBIN(alignment, s_i, s_j);
-			alignment->correlationMatrix[i][j] = qLD_res[s_i*alignment->segsites+s_j];
+			alignment->correlationMatrix[i][j] = computePairwiseCorrelationBIN(alignment, s_i, s_j);
+			// alignment->correlationMatrix[i][j] = qLD_res[s_i*alignment->segsites+s_j];
 		}
 	}	
 }

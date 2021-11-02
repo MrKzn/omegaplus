@@ -1673,7 +1673,7 @@ int main(int argc, char** argv)
 		free(genGridList);
 #else
 
-			qLD_res = correlate_gpu(alignment->compressedArrays[0], BCtable, alignment->segsites, alignment->siteSize, alignment->sequences);
+			// qLD_res = correlate_gpu(alignment->compressedArrays[0], BCtable, alignment->segsites, alignment->siteSize, alignment->sequences);
 			
 		    alignment->correlationMatrix = createCorrelationMatrix(alignment->correlationMatrix,matrixSizeMax);
 		    lvw_i=-1;
@@ -1713,11 +1713,10 @@ int main(int argc, char** argv)
 					// for(j=0;j<iter;j++){
 						computeOmegas_gpu(alignment, omega, cvw_i, functionData,NULL);
 						// computeOmegas (alignment, omega, cvw_i, functionData,NULL);
-						// computeOmegaValues_gpu4(omega, cvw_i, alignment->correlationMatrix, NULL, omegas, LSs, RSs, TSs, ks, ms);
 					// }
 					time3 = gettime();
-					printf("%lf\n",time3-time2);
-					// time4 += time3 - time2;
+					// printf("%lf\n",time3-time2);
+					time4 += time3 - time2;
 					// printf("Compute: %f\n",(time3-time2)/iter);
 
 					// int outer_cnt = omega[cvw_i].leftminIndex - omega[cvw_i].leftIndex - omega[cvw_i].leftIndex - omega[cvw_i].leftIndex + 1;
@@ -1747,7 +1746,7 @@ int main(int argc, char** argv)
 			// time2 = gettime();
 			// computeOmegaValues_gpu3 (omega, alignment->correlationMatrix, NULL, indexes, cnt);
 			// time4 = gettime() - time2;
-			// printf("Compute: %f\n",time4);
+			printf("Compute: %f\n",time4);
 #endif		    
 #endif
 
