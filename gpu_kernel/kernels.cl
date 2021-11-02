@@ -1,5 +1,5 @@
 //MPAMPIS -not included before-
-#include "gpu_kernel/blislike.h"
+#include "gpu_kernel/kernels.h"
 
 __kernel void blis_like (
     unsigned int k, unsigned int m_alg, unsigned int n_alg,

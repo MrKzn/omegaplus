@@ -38,7 +38,7 @@
 #include <ctype.h>
 // qLD ADDED
 #include <stdint.h>
-#include "gpu_kernel/blislike.h"
+#include "gpu_kernel/kernels.h"
 
 #ifdef _USE_PTHREADS
 #include <pthread.h>
@@ -360,7 +360,7 @@ void gpu_release(void);
 typedef uint64_t inputDataType_x64;
 typedef uint32_t inputDataType_x32;
 
-#define PROGRAM_FILE "gpu_kernel/blislike.cl"
+#define PROGRAM_FILE "gpu_kernel/kernels.cl"
 #define KERNEL_NAME "blis_like8x4"
 #define RESULTS_PART_SIZE_GPU 4 //2*2
 #define DOUBLE unsigned int
