@@ -397,8 +397,8 @@ cl_kernel omega_kernel;
 cl_kernel omega_kernel2;
 
 cl_uint comp_units;
-size_t group_size;
-size_t work_items;
+cl_uint steps_thresh;
+size_t max_group_size, pref_group_size, work_items;
 cl_long max_omegas, max_LRkm, max_TS;
 
 void computeOmegas_gpu (alignment_struct * alignment, omega_struct * omega, int omegaIndex, void * threadData, cor_t ** correlationMatrix);
