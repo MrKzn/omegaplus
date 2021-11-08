@@ -645,18 +645,18 @@ __kernel void omega1 (
 ) {
   const unsigned int G_i = get_global_id(0);
 
-  unsigned int L_i = G_i / LR_SNP + LR_SNP;   // If R is small very nonoptimal access behaviour Test COLAB
-  unsigned int R_i = G_i % LR_SNP;
+  unsigned int LR_i = G_i / LR_SNP + LR_SNP;   // If R is small very nonoptimal access behaviour Test COLAB
+  unsigned int RL_i = G_i % LR_SNP;
 
-  int k = km[L_i];
+  int k = km[LR_i];
   int ksel2 = (k * (k-1)) / 2;
 
-  int m = km[R_i];
+  int m = km[RL_i];
   int msel2 = (m * (m-1)) / 2;
 
-  float n = (LR[L_i] + LR[R_i]) / (ksel2 + msel2);
+  float n = (LR[LR_i] + LR[RL_i]) / (ksel2 + msel2);
 
-  float d = (TS[G_i] - LR[L_i] - LR[R_i]) / (k * m) + DENOMINATOR_OFFSET_GPU;
+  float d = (TS[G_i] - LR[LR_i] - LR[RL_i]) / (k * m) + DENOMINATOR_OFFSET_GPU;
   omega[G_i] = n / d;
 }
 
