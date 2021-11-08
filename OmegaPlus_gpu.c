@@ -53,8 +53,8 @@ void computeOmega_gpuF1(float * omegas, float * LR, int * km, float * T, int in_
 	err = clSetKernelArg(omega_kernel2, 4, sizeof(int), &inner_cnt);
 	printCLErr(err,__LINE__,__FILE__);
 
-	const size_t local = LOCAL_2;
-	const size_t global = total + (LOCAL_2 - (total & (LOCAL_2 - 1)));
+	const size_t local = max_group_size;
+	const size_t global = (total + local - 1) & -local;
 
 	// write values to GPU buffers
 	// LRkm
@@ -106,6 +106,7 @@ void computeOmega_gpuF1(float * omegas, float * LR, int * km, float * T, int in_
 			io_queue, omega_buffer, CL_FALSE, 0,
 			total*sizeof(float), omegas,
 			1, &events[1], NULL
+            // 0, NULL, NULL
 			);
 	printCLErr(err,__LINE__,__FILE__);
 
@@ -116,7 +117,7 @@ void computeOmega_gpuF2(float * omegas, unsigned int * indexes, float * LR, int 
 	// static cl_ulong p_start, p_end, p_total=0;
 
 	int err=0;
-	const size_t local = group_size;
+	const size_t local = pref_group_size;
 	const size_t global = work_items; 
 
 	// set kernel arguments
@@ -174,6 +175,7 @@ void computeOmega_gpuF2(float * omegas, unsigned int * indexes, float * LR, int 
 			io_queue, omega_buffer, CL_FALSE, 0,
 			global*sizeof(float), omegas,
 			1, &events[1], NULL
+            // 0, NULL, NULL
 			);
 	printCLErr(err,__LINE__,__FILE__);
 
@@ -213,19 +215,19 @@ void computeOmegaValues_gpuF (omega_struct * omega, int omegaIndex, cor_t ** cor
 	outer_cnt = leftMinIndex - leftMaxIndex + 1;
 	inner_cnt = rightMaxIndex - rightMinIndex + 1;
 	total = outer_cnt * inner_cnt;
-	
-	if(total > 20000)	// Threshold
+
+	if(total > steps_thresh)	// Threshold
 	{
 		// outer_work += group_size - (outer_cnt & (group_size - 1));
-        outer_work = (outer_cnt + group_size - 1) & -group_size;
+        outer_work = (outer_cnt + pref_group_size - 1) & -pref_group_size;
 		// inner_work += group_size - (inner_cnt & (group_size - 1));
-        inner_work = (inner_cnt + group_size - 1) & -group_size;
+        inner_work = (inner_cnt + pref_group_size - 1) & -pref_group_size;
 		work_total = outer_work * inner_work;
 		in_out_cnt = outer_work + inner_work;
 
 		// work_groups = work_total / (group_size * group_size);
 		// work_items = group_size * work_groups;
-        work_items = work_total / group_size;
+        work_items = work_total / pref_group_size;
 
         if(work_items > max_omegas || total > max_TS || in_out_cnt > max_LRkm){
             printf("Grid point %d is skipped due to insufficient GPU memory\n",omegaIndex);
@@ -1331,8 +1333,7 @@ void gpu_init(void)
 	printCLErr(err,__LINE__,__FILE__);
 
 	// Get workgroup size or preferred size
-	size_t max_group_size, pref_group_size;
-	err = clGetKernelWorkGroupInfo(omega_kernel, devices[gpu],CL_KERNEL_WORK_GROUP_SIZE, sizeof(size_t), &max_group_size, NULL);
+	err = clGetKernelWorkGroupInfo(omega_kernel2, devices[gpu],CL_KERNEL_WORK_GROUP_SIZE, sizeof(size_t), &max_group_size, NULL);
 	// printf("Max kernel work-group size: %lu\n",max_group_size);	// 256
 	err = clGetKernelWorkGroupInfo(omega_kernel, devices[gpu],CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE, sizeof(size_t), &pref_group_size, NULL);
 	// printf("Work-group pref. multiple: %lu\n",pref_group_size);	// 64
@@ -1344,9 +1345,11 @@ void gpu_init(void)
 
     printf("Compute units: %u\n", comp_units);
 
-	group_size = pref_group_size;
+    steps_thresh = comp_units * pref_group_size * 32;
 
-	printf("Set work-group size: %lu\n", group_size);
+    pref_group_size *= 1;
+
+	printf("Set work-group size: %lu\n", pref_group_size);
 
 	cl_ulong total;
 
@@ -1481,8 +1484,8 @@ void gpu_init(void)
     err |= clSetKernelArg(omega_kernel, 2, sizeof(cl_mem), &LR_buffer);
     err |= clSetKernelArg(omega_kernel, 3, sizeof(cl_mem), &TS_buffer);
     err |= clSetKernelArg(omega_kernel, 4, sizeof(cl_mem), &km_buffer);
-    err |= clSetKernelArg(omega_kernel, 7, sizeof(cl_int) * group_size, NULL);
-    err |= clSetKernelArg(omega_kernel, 8, sizeof(cl_int) * group_size, NULL);
+    err |= clSetKernelArg(omega_kernel, 7, sizeof(cl_int) * pref_group_size, NULL);
+    err |= clSetKernelArg(omega_kernel, 8, sizeof(cl_int) * pref_group_size, NULL);
     printCLErr(err,__LINE__,__FILE__);
 	
 	// set second kernel arguements for buffers
