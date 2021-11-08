@@ -641,12 +641,12 @@ __kernel void blis_like4x8v2 (
 }
 
 __kernel void omega1 (
-    __global float *omega, __constant float *LR, __constant float *TS, __constant int *km, int R
+    __global float *omega, __constant float *LR, __constant float *TS, __constant int *km, int LR_SNP
 ) {
   const unsigned int G_i = get_global_id(0);
 
-  unsigned int L_i = G_i / R + R;   // If R is small very nonoptimal access behaviour Test COLAB
-  unsigned int R_i = G_i % R;
+  unsigned int L_i = G_i / LR_SNP + LR_SNP;   // If R is small very nonoptimal access behaviour Test COLAB
+  unsigned int R_i = G_i % LR_SNP;
 
   int k = km[L_i];
   int ksel2 = (k * (k-1)) / 2;

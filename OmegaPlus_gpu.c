@@ -45,22 +45,22 @@ inline cl_ulong minlu(cl_ulong a, cl_ulong b)
 }
 
 /*   ---  GPU Omega functions  ---   */
-void computeOmega_gpuF1(float * omegas, float * LR, int * km, float * T, int in_out_cnt, int inner_cnt, unsigned int total){
+void computeOmega_gpuF1(float * omegas, float * LR, int * km, float * T, int tot_SNP, int LR_SNP, unsigned int tot_step){
 	// static cl_ulong p_start, p_end, p_total=0;
 	int err=0;
 
 	// //set kernel arguments
-	err = clSetKernelArg(omega_kernel2, 4, sizeof(int), &inner_cnt);
+	err = clSetKernelArg(omega_kernel2, 4, sizeof(int), &LR_SNP);
 	printCLErr(err,__LINE__,__FILE__);
 
 	const size_t local = max_group_size;
-	const size_t global = (total + local - 1) & -local;
+	const size_t global = (tot_step + local - 1) & -local;
 
 	// write values to GPU buffers
 	// LRkm
 	err=clEnqueueWriteBuffer(
 			io_queue, LR_buffer, CL_FALSE, 0,
-			in_out_cnt*sizeof(float), LR,
+			tot_SNP*sizeof(float), LR,
 			0, NULL, NULL
 			);
 	printCLErr(err,__LINE__,__FILE__);
@@ -68,7 +68,7 @@ void computeOmega_gpuF1(float * omegas, float * LR, int * km, float * T, int in_
 	// TS
 	err=clEnqueueWriteBuffer(
 			io_queue, TS_buffer, CL_FALSE, 0,
-			total*sizeof(float), T,
+			tot_step*sizeof(float), T,
 			0, NULL, NULL
 			);
 	printCLErr(err,__LINE__,__FILE__);
@@ -76,7 +76,7 @@ void computeOmega_gpuF1(float * omegas, float * LR, int * km, float * T, int in_
 	// km
 	err=clEnqueueWriteBuffer(
 			io_queue, km_buffer, CL_FALSE, 0,
-			in_out_cnt*sizeof(int), km,
+			tot_SNP*sizeof(int), km,
 			0, NULL, &events[0]
 			);
 	printCLErr(err,__LINE__,__FILE__);
@@ -104,7 +104,7 @@ void computeOmega_gpuF1(float * omegas, float * LR, int * km, float * T, int in_
 	//read back omega values in omega buffer
 	err=clEnqueueReadBuffer(
 			io_queue, omega_buffer, CL_FALSE, 0,
-			total*sizeof(float), omegas,
+			tot_step*sizeof(float), omegas,
 			1, &events[1], NULL
             // 0, NULL, NULL
 			);
@@ -113,7 +113,7 @@ void computeOmega_gpuF1(float * omegas, float * LR, int * km, float * T, int in_
     clFinish(io_queue);
 }
 
-void computeOmega_gpuF2(float * omegas, unsigned int * indexes, float * LR, int * km, float * T, int in_out_cnt, int outer, int inner, unsigned int total){
+void computeOmega_gpuF2(float * omegas, unsigned int * indexes, float * LR, int * km, float * T, int tot_SNP, int L_SNP_pad, int R_SNP_pad, unsigned int tot_step_pad){
 	// static cl_ulong p_start, p_end, p_total=0;
 
 	int err=0;
@@ -121,15 +121,15 @@ void computeOmega_gpuF2(float * omegas, unsigned int * indexes, float * LR, int 
 	const size_t global = work_items; 
 
 	// set kernel arguments
-	err |= clSetKernelArg(omega_kernel, 5, sizeof(cl_int), &outer);
-	err |= clSetKernelArg(omega_kernel, 6, sizeof(cl_int), &inner);
+	err |= clSetKernelArg(omega_kernel, 5, sizeof(cl_int), &L_SNP_pad);
+	err |= clSetKernelArg(omega_kernel, 6, sizeof(cl_int), &R_SNP_pad);
 	printCLErr(err,__LINE__,__FILE__);
 
 	// write values to GPU buffers
 	// LR
 	err=clEnqueueWriteBuffer(
 			io_queue, LR_buffer, CL_FALSE, 0,
-			in_out_cnt*sizeof(float), LR,
+			tot_SNP*sizeof(float), LR,
 			0, NULL, NULL
 			);
 	printCLErr(err,__LINE__,__FILE__);
@@ -137,7 +137,7 @@ void computeOmega_gpuF2(float * omegas, unsigned int * indexes, float * LR, int 
 	// TS
 	err=clEnqueueWriteBuffer(
 			io_queue, TS_buffer, CL_FALSE, 0,
-			total*sizeof(float), T,
+			tot_step_pad*sizeof(float), T,
 			0, NULL, NULL
 			);
 	printCLErr(err,__LINE__,__FILE__);
@@ -145,7 +145,7 @@ void computeOmega_gpuF2(float * omegas, unsigned int * indexes, float * LR, int 
 	// km
 	err=clEnqueueWriteBuffer(
 			io_queue, km_buffer, CL_FALSE, 0,
-			in_out_cnt*sizeof(int), km,
+			tot_SNP*sizeof(int), km,
 			0, NULL, &events[0]
 			);
 	printCLErr(err,__LINE__,__FILE__);
@@ -198,9 +198,9 @@ void computeOmegaValues_gpuF (omega_struct * omega, int omegaIndex, cor_t ** cor
 
 	unsigned int * indexes = NULL, index=0;
 	static int * km = NULL;
-	int i, j, maxLeftIndex=0, maxRightIndex=0, inner_work, outer_work,
+	int i, j, maxLeftIndex=0, maxRightIndex=0, R_SNP_pad, L_SNP_pad,
 	
-	total, work_total, outer_cnt, inner_cnt, in_out_cnt, inner_i=0, Lk_i=0, Rm_i=0,
+	tot_step, tot_step_pad, L_SNP, R_SNP, tot_SNP, T_i=0, Lk_i=0, Rm_i=0,
 	
 	omegaSNIPIndex = omega[omegaIndex].omegaPos - omega[omegaIndex].leftIndex,
 
@@ -212,38 +212,38 @@ void computeOmegaValues_gpuF (omega_struct * omega, int omegaIndex, cor_t ** cor
 
 	rightMaxIndex = omega[omegaIndex].rightIndex - omega[omegaIndex].leftIndex;
 	
-	outer_cnt = leftMinIndex - leftMaxIndex + 1;
-	inner_cnt = rightMaxIndex - rightMinIndex + 1;
-	total = outer_cnt * inner_cnt;
+	L_SNP = leftMinIndex - leftMaxIndex + 1;
+	R_SNP = rightMaxIndex - rightMinIndex + 1;
+	tot_step = L_SNP * R_SNP;
 
-	if(total > steps_thresh)	// Threshold
+	if(tot_step > steps_thresh)	// Threshold
 	{
-		// outer_work += group_size - (outer_cnt & (group_size - 1));
-        outer_work = (outer_cnt + pref_group_size - 1) & -pref_group_size;
-		// inner_work += group_size - (inner_cnt & (group_size - 1));
-        inner_work = (inner_cnt + pref_group_size - 1) & -pref_group_size;
-		work_total = outer_work * inner_work;
-		in_out_cnt = outer_work + inner_work;
+		// L_SNP_pad += group_size - (L_SNP & (group_size - 1));
+        L_SNP_pad = (L_SNP + pref_group_size - 1) & -pref_group_size;
+		// R_SNP_pad += group_size - (R_SNP & (group_size - 1));
+        R_SNP_pad = (R_SNP + pref_group_size - 1) & -pref_group_size;
+		tot_step_pad = L_SNP_pad * R_SNP_pad;
+		tot_SNP = L_SNP_pad + R_SNP_pad;
 
-		// work_groups = work_total / (group_size * group_size);
+		// work_groups = tot_step_pad / (group_size * group_size);
 		// work_items = group_size * work_groups;
-        work_items = work_total / pref_group_size;
+        work_items = tot_step_pad / pref_group_size;
 
-        if(work_items > max_omegas || total > max_TS || in_out_cnt > max_LRkm){
+        if(work_items > max_omegas || tot_step > max_TS || tot_SNP > max_LRkm){
             printf("Grid point %d is skipped due to insufficient GPU memory\n",omegaIndex);
             return;
         }
 
 		omegas = malloc(sizeof(*omegas)*work_items);
 		indexes = malloc(sizeof(*indexes)*work_items);
-		LR = malloc(sizeof(*LR) * in_out_cnt);
-		km = malloc(sizeof(*km) * in_out_cnt);
-		T = malloc(sizeof(*T) * work_total);
+		LR = malloc(sizeof(*LR) * tot_SNP);
+		km = malloc(sizeof(*km) * tot_SNP);
+		T = malloc(sizeof(*T) * tot_step_pad);
 
 		if(omegas==NULL || indexes==NULL || LR==NULL || km==NULL || T==NULL)
 			printf("MALLOC error\n");
 
-		Rm_i = outer_work;
+		Rm_i = L_SNP_pad;
 
 		for (i=leftMinIndex;i>=leftMaxIndex;i--) // Left Side
 		{
@@ -262,24 +262,24 @@ void computeOmegaValues_gpuF (omega_struct * omega, int omegaIndex, cor_t ** cor
 					Rm_i++;
 				}
 				
-				T[inner_i] = correlationMatrix[j][i];
-				inner_i++;
+				T[T_i] = correlationMatrix[j][i];
+				T_i++;
 			}
 			Lk_i++;
-			inner_i = Lk_i * inner_work;
+			T_i = Lk_i * R_SNP_pad;
 		}
 		
-		for(i=outer_work+inner_cnt;i<in_out_cnt;i++){
+		for(i=L_SNP_pad+R_SNP;i<tot_SNP;i++){
 			LR[i] = 1;
 			km[i] = 0;
 		}
-		for(i=outer_cnt;i<outer_work;i++){
+		for(i=L_SNP;i<L_SNP_pad;i++){
 			LR[i] = 1;
 			km[i] = 0;
 		}
 
 		// mtime0 = gettime();
-		computeOmega_gpuF2(omegas, indexes, LR, km, T, in_out_cnt, outer_work, inner_work, work_total);
+		computeOmega_gpuF2(omegas, indexes, LR, km, T, tot_SNP, L_SNP_pad, R_SNP_pad, tot_step_pad);
 		// mtime1 = gettime();
 		// mtimetot = mtime1 - mtime0;
 		// printf("%f\n",mtimetot);
@@ -294,74 +294,125 @@ void computeOmegaValues_gpuF (omega_struct * omega, int omegaIndex, cor_t ** cor
 			}
 		}
 
-		maxLeftIndex = (leftMinIndex - (indexes[index]/inner_work)) + omega[omegaIndex].leftIndex;
-		maxRightIndex = (rightMinIndex + (indexes[index]%inner_work)) + omega[omegaIndex].leftIndex;
+		maxLeftIndex = (leftMinIndex - (indexes[index]/R_SNP_pad)) + omega[omegaIndex].leftIndex;
+		maxRightIndex = (rightMinIndex + (indexes[index]%R_SNP_pad)) + omega[omegaIndex].leftIndex;
 		
 		free(indexes);
 	}
 	else
 	{
-		in_out_cnt = outer_cnt + inner_cnt;
+		tot_SNP = L_SNP + R_SNP;
 
-        if(work_items > max_omegas || total > max_TS || in_out_cnt > max_LRkm){
+        if(work_items > max_omegas || tot_step > max_TS || tot_SNP > max_LRkm){
             printf("Grid point %d is skipped due to insufficient GPU memory\n",omegaIndex);
             return;
         }
 
-		omegas = malloc(sizeof(*omegas)*total);
-		LR = malloc(sizeof(*LR)*in_out_cnt);
-		km = malloc(sizeof(*km)*in_out_cnt);
-		T = malloc(sizeof(*T)*total);
+		omegas = malloc(sizeof(*omegas)*tot_step);
+		LR = malloc(sizeof(*LR)*tot_SNP);
+		km = malloc(sizeof(*km)*tot_SNP);
+		T = malloc(sizeof(*T)*tot_step);
 
 		if(omegas==NULL || LR==NULL || km==NULL || T==NULL)
 			printf("MALLOC error\n");
 
-		Lk_i = inner_cnt;
-		
-		for (i=leftMinIndex;i>=leftMaxIndex;i--) // Left Side
-		{
-			LR[Lk_i] = correlationMatrix[omegaSNIPIndex][i];			// LSs
+        if(R_SNP > L_SNP)
+        {
+            Lk_i = R_SNP;
+            
+            for (i=leftMinIndex;i>=leftMaxIndex;i--) // Left Side
+            {
+                LR[Lk_i] = correlationMatrix[omegaSNIPIndex][i];			// LSs
 
-			km[Lk_i] = omegaSNIPIndex - i + 1;							// ks
+                km[Lk_i] = omegaSNIPIndex - i + 1;							// ks
 
-			for(j=rightMinIndex;j<=rightMaxIndex;j++) // Right Side
-			{
-				if(!(Lk_i-inner_cnt))
-				{
-					LR[Rm_i] = correlationMatrix[j][omegaSNIPIndex+1];	// RSs
+                for(j=rightMinIndex;j<=rightMaxIndex;j++) // Right Side
+                {
+                    if(!(Lk_i-R_SNP))
+                    {
+                        LR[Rm_i] = correlationMatrix[j][omegaSNIPIndex+1];	// RSs
 
-					km[Rm_i] = j - omegaSNIPIndex;						// ms
+                        km[Rm_i] = j - omegaSNIPIndex;						// ms
 
-					Rm_i++;
-				}
-				
-				T[inner_i] = correlationMatrix[j][i];
+                        Rm_i++;
+                    }
+                    
+                    T[T_i] = correlationMatrix[j][i];
 
-				inner_i++;
-                // T++;         increase pointer location, only possible if T has its starting position
-			}
-			Lk_i++;
-		}
+                    T_i++;
+                    // T++;         increase pointer location, only possible if T has its starting position
+                }
+                Lk_i++;
+            }
 
-		// mtime0 = gettime();
-		computeOmega_gpuF1(omegas, LR, km, T, in_out_cnt, inner_cnt, total);
-		// mtime1 = gettime();
-		// mtimetot = mtime1 - mtime0;
-		// printf("%f\n",mtimetot);
+            // mtime0 = gettime();
+            computeOmega_gpuF1(omegas, LR, km, T, tot_SNP, R_SNP, tot_step);
+            // mtime1 = gettime();
+            // mtimetot = mtime1 - mtime0;
+            // printf("%f\n",mtimetot);
 
-		for(i=0;i<total;i++)
-		{
-			tmpW = omegas[i];
-			if(tmpW>maxW)
-			{
-				maxW = tmpW;
-				index = i;
-			}
-		}
+            for(i=0;i<tot_step;i++)
+            {
+                tmpW = omegas[i];
+                if(tmpW>maxW)
+                {
+                    maxW = tmpW;
+                    index = i;
+                }
+            }
 
-		maxLeftIndex = (leftMinIndex - (index/inner_cnt)) + omega[omegaIndex].leftIndex;
-		maxRightIndex = (rightMinIndex + (index%inner_cnt)) + omega[omegaIndex].leftIndex;
-	}
+            maxLeftIndex = (leftMinIndex - (index/R_SNP)) + omega[omegaIndex].leftIndex;
+            maxRightIndex = (rightMinIndex + (index%R_SNP)) + omega[omegaIndex].leftIndex;
+        }
+        else
+        {
+            Rm_i = L_SNP;
+
+            for(j=rightMinIndex;j<=rightMaxIndex;j++) // Right Side
+            {
+                LR[Rm_i] = correlationMatrix[j][omegaSNIPIndex+1];	// RSs
+
+                km[Rm_i] = j - omegaSNIPIndex;						// ms
+                
+                for (i=leftMinIndex;i>=leftMaxIndex;i--) // Left Side
+                {
+                    if(!(Rm_i-L_SNP))
+                    {
+                        LR[Lk_i] = correlationMatrix[omegaSNIPIndex][i];			// LSs
+
+                        km[Lk_i] = omegaSNIPIndex - i + 1;							// ks
+
+                        Lk_i++;
+                    }
+                    
+                    T[T_i] = correlationMatrix[j][i];
+
+                    T_i++;
+                    // T++;         increase pointer location, only possible if T has its starting position
+                }
+                Rm_i++;
+            }
+
+            // mtime0 = gettime();
+            computeOmega_gpuF1(omegas, LR, km, T, tot_SNP, L_SNP, tot_step);
+            // mtime1 = gettime();
+            // mtimetot = mtime1 - mtime0;
+            // printf("%f\n",mtimetot);
+
+            for(i=0;i<tot_step;i++)
+            {
+                tmpW = omegas[i];
+                if(tmpW>maxW)
+                {
+                    maxW = tmpW;
+                    index = i;
+                }
+            }
+
+            maxLeftIndex = (leftMinIndex - (index/L_SNP)) + omega[omegaIndex].leftIndex;
+            maxRightIndex = (rightMinIndex + (index%L_SNP)) + omega[omegaIndex].leftIndex;
+        }
+    }
 	
 	omega[omegaIndex].maxValue = maxW;
 	omega[omegaIndex].maxLeftIndex  = maxLeftIndex;
