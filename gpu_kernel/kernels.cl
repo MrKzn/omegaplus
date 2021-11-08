@@ -640,25 +640,24 @@ __kernel void blis_like4x8v2 (
 
 }
 
-__kernel void omega1 (    // use const instead of __constant https://www.paranumal.com/single-post/2018/02/26/basic-gpu-optimization-strategies
-    __global float *omega, __constant float *lr, __constant float *ts, __constant int *km, int inner
+__kernel void omega1 (
+    __global float *omega, __constant float *LR, __constant float *TS, __constant int *km, int R
 ) {
-  const unsigned int i = get_global_id(0);
+  const unsigned int G_i = get_global_id(0);
 
-  unsigned int outer_i = i / inner + inner;
-	unsigned int inner_i = i % inner;
+  unsigned int L_i = G_i / R + R;   // If R is small very nonoptimal access behaviour Test COLAB
+  unsigned int R_i = G_i % R;
 
-  int vk = km[outer_i];
-  int ksel2 = (vk * (vk-1)) / 2;
+  int k = km[L_i];
+  int ksel2 = (k * (k-1)) / 2;
 
-  int vm = km[inner_i];
-  int msel2 = (vm * (vm-1)) / 2;
+  int m = km[R_i];
+  int msel2 = (m * (m-1)) / 2;
 
-  float n = (lr[outer_i] + lr[inner_i]) / (ksel2 + msel2);
+  float n = (LR[L_i] + LR[R_i]) / (ksel2 + msel2);
 
-  float d = (ts[i] - lr[outer_i] - lr[inner_i]) / (vk*vm) + 0.00001f;
-
-  omega[i] = n / d;
+  float d = (TS[G_i] - LR[L_i] - LR[R_i]) / (k * m) + DENOMINATOR_OFFSET_GPU;
+  omega[G_i] = n / d;
 }
 
 __kernel void omega2 (
@@ -704,7 +703,7 @@ __kernel void omega2 (
 
 __kernel void omega3 (
     __global float *omega_global, __global unsigned int *index_global, __constant float *lr, 
-    __constant float *ts, __constant int *km, int outer, int inner,
+    __global float *ts, __constant int *km, int outer, int inner,
     __local float *lrs, __local int *lmss
 ) {
   unsigned int ig = get_global_id(0);

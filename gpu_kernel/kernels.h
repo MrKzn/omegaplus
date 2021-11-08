@@ -17,3 +17,5 @@
 
 // NC/MC 32, n/m 32 and 64,64 work fine (k = 1)
 // NC/MC 32, n/m 64 does not
+
+#define DENOMINATOR_OFFSET_GPU 0.00001f
