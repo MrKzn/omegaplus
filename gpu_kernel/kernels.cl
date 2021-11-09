@@ -641,22 +641,22 @@ __kernel void blis_like4x8v2 (
 }
 
 __kernel void omega1 (
-    __global float *omega, __constant float *LR, __constant float *TS, __constant int *km, int LR_SNP
+    __global float *omega, __constant float *LR, __constant float *TS, __constant int *km, int in_cnt
 ) {
   const unsigned int G_i = get_global_id(0);
 
-  unsigned int LR_i = G_i / LR_SNP + LR_SNP;   // If R is small very nonoptimal access behaviour Test COLAB
-  unsigned int RL_i = G_i % LR_SNP;
+  unsigned int O_i = G_i / in_cnt + in_cnt;
+  unsigned int I_i = G_i % in_cnt;
 
-  int k = km[LR_i];
-  int ksel2 = (k * (k-1)) / 2;
+  int k_m = km[O_i];
+  int k_msel2 = (k_m * (k_m-1)) / 2;
 
-  int m = km[RL_i];
-  int msel2 = (m * (m-1)) / 2;
+  int m_k = km[I_i];
+  int m_ksel2 = (m_k * (m_k-1)) / 2;
 
-  float n = (LR[LR_i] + LR[RL_i]) / (ksel2 + msel2);
+  float n = (LR[O_i] + LR[I_i]) / (k_msel2 + m_ksel2);
 
-  float d = (TS[G_i] - LR[LR_i] - LR[RL_i]) / (k * m) + DENOMINATOR_OFFSET_GPU;
+  float d = (TS[G_i] - LR[O_i] - LR[I_i]) / (k_m * m_k) + DENOMINATOR_OFFSET_GPU;
   omega[G_i] = n / d;
 }
 

@@ -45,12 +45,12 @@ inline cl_ulong minlu(cl_ulong a, cl_ulong b)
 }
 
 /*   ---  GPU Omega functions  ---   */
-void computeOmega_gpuF1(float * omegas, float * LR, int * km, float * T, int tot_SNP, int LR_SNP, unsigned int tot_step){
+void computeOmega_gpuF1(float * omegas, float * LR, int * km, float * T, int tot_cnt, int in_cnt, unsigned int tot_step){
 	// static cl_ulong p_start, p_end, p_total=0;
 	int err=0;
 
 	// //set kernel arguments
-	err = clSetKernelArg(omega_kernel2, 4, sizeof(int), &LR_SNP);
+	err = clSetKernelArg(omega_kernel2, 4, sizeof(int), &in_cnt);
 	printCLErr(err,__LINE__,__FILE__);
 
 	const size_t local = max_group_size;
@@ -60,7 +60,7 @@ void computeOmega_gpuF1(float * omegas, float * LR, int * km, float * T, int tot
 	// LRkm
 	err=clEnqueueWriteBuffer(
 			io_queue, LR_buffer, CL_FALSE, 0,
-			tot_SNP*sizeof(float), LR,
+			tot_cnt*sizeof(float), LR,
 			0, NULL, NULL
 			);
 	printCLErr(err,__LINE__,__FILE__);
@@ -76,7 +76,7 @@ void computeOmega_gpuF1(float * omegas, float * LR, int * km, float * T, int tot
 	// km
 	err=clEnqueueWriteBuffer(
 			io_queue, km_buffer, CL_FALSE, 0,
-			tot_SNP*sizeof(int), km,
+			tot_cnt*sizeof(int), km,
 			0, NULL, &events[0]
 			);
 	printCLErr(err,__LINE__,__FILE__);
