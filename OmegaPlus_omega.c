@@ -2324,7 +2324,7 @@ void computeOmegaValues_gpu13 (omega_struct * omega, int omegaIndex, cor_t ** co
 
 void computeOmega_gpu14(float * omegas, unsigned int * indexes, float * L, float * R, int * k, int * m, float * T, int outer, int mult, int iter, int inner, unsigned int total){
 	static cl_ulong p_start, p_end, p_total=0;
-	static double ttime0, ttime1, ttot = 0;
+	// static double ttime0, ttime1, ttot = 0;
 
 	int err=0;
 	const size_t local = group_size;
@@ -2336,7 +2336,7 @@ void computeOmega_gpu14(float * omegas, unsigned int * indexes, float * L, float
 	err |= clSetKernelArg(omega_kernel, 9, sizeof(cl_int), &inner);
 	printCLErr(err,__LINE__,__FILE__);
 
-	ttime0 = gettime();
+	// ttime0 = gettime();
 	// write values to GPU buffers
 	// L
 	err=clEnqueueWriteBuffer(
@@ -2387,9 +2387,9 @@ void computeOmega_gpu14(float * omegas, unsigned int * indexes, float * L, float
 
 	clWaitForEvents(1, &events[1]);
 
-	ttime1 = gettime();
-	ttot += ttime1 - ttime0;
-	printf("%f\n",ttot);
+	// ttime1 = gettime();
+	// ttot += ttime1 - ttime0;
+	// printf("%f\n",ttot);
 
     err=clGetEventProfilingInfo(events[1], CL_PROFILING_COMMAND_START, sizeof(cl_ulong),
                             &p_start, NULL);
@@ -2398,7 +2398,7 @@ void computeOmega_gpu14(float * omegas, unsigned int * indexes, float * L, float
                             &p_end, NULL);
 	printCLErr(err,__LINE__,__FILE__);
 
-	p_total += p_end - p_start;
+	p_total = p_end - p_start;
 
 	printf("%lu\n",p_total);
 
@@ -2414,9 +2414,11 @@ void computeOmega_gpu14(float * omegas, unsigned int * indexes, float * L, float
 	err=clEnqueueReadBuffer(
 			io_queue, index_buffer, CL_FALSE, 0,
 			global*sizeof(unsigned int), indexes,
-			0, NULL, NULL
+			0, NULL, &events[1]
 			);
 	printCLErr(err,__LINE__,__FILE__);
+
+	clWaitForEvents(1, &events[1]);
 }
 
 void computeOmegaValues_gpu14 (omega_struct * omega, int omegaIndex, cor_t ** correlationMatrix, void * threadData)
@@ -4202,7 +4204,7 @@ void computeOmegas (alignment_struct * alignment, omega_struct * omega, int omeg
 
 void computeOmegas_gpu (alignment_struct * alignment, omega_struct * omega, int omegaIndex, void * threadData, cor_t ** correlationMatrix)
 {
-	test_gpu2 (omega, omegaIndex, alignment->correlationMatrix, NULL);
+	computeOmegaValues_gpu14 (omega, omegaIndex, alignment->correlationMatrix, NULL);
 }
 #endif
 
@@ -4917,7 +4919,7 @@ void gpu_init(void)
     err=clGetDeviceIDs(platforms[0], CL_DEVICE_TYPE_GPU, num_devices, devices, NULL);
     printCLErr(err,__LINE__,__FILE__);
 
-	int gpu = 1;
+	int gpu = 0;
    
     context=clCreateContext(NULL, 1, &devices[gpu], NULL, NULL, &err);
     printCLErr(err,__LINE__,__FILE__);

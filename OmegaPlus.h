@@ -426,7 +426,7 @@ unsigned int cs_c;
 // -- OMEGA OPENCL STUFF -- //
 // #define OMEGA_NAME "omega"
 // #define OMEGA_NAME "omega2"
-#define OMEGA_NAME "omega3"
+// #define OMEGA_NAME "omega3"
 // #define OMEGA_NAME "omega4"
 // #define OMEGA_NAME "omega5"
 // #define OMEGA_NAME "omega6"
@@ -435,7 +435,7 @@ unsigned int cs_c;
 // #define OMEGA_NAME "omega9"
 // #define OMEGA_NAME "omegatest"
 // #define OMEGA_NAME "omega13"
-// #define OMEGA_NAME "omega14"
+#define OMEGA_NAME "omega14"
 // #define OMEGA_NAME "omega15"
 // #define OMEGA_NAME "omega16"
 // #define OMEGA_NAME "omega17"
