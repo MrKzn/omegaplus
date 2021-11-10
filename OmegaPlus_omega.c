@@ -5211,7 +5211,7 @@ void gpu_init(void)
 		total += omega_buffer_size + LS_buffer_size + RS_buffer_size + TS_buffer_size + 
 			k_buffer_size + m_buffer_size;
 	}
-	else if(strcmp(OMEGA_NAME, "omega3") == 0){
+	else if(strcmp(OMEGA_NAME, "omega3") == 0 || strcmp(OMEGA_NAME, "omega22") == 0){
 		total += omega_buffer_size + LRkm_buffer_size + TS_buffer_size;
 	}
 	else if(strcmp(OMEGA_NAME, "omega4") == 0){
