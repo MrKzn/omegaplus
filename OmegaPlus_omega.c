@@ -4024,11 +4024,11 @@ void computeOmegaValues_gpu22 (omega_struct * omega, int omegaIndex, cor_t ** co
 			inner_i++;
 		}
 		Lk_i++;
-		inner_i = Lk_i*inner_work;
+		inner_i = (Lk_i-inner_work)*inner_work;
 	}
 
 	// mtime0 = gettime();
-	computeOmega_gpu22(omegas, indexes, LR, km, TSs,  in_out_cnt, iter, inner_work, total);
+	computeOmega_gpu22(omegas, indexes, LR, km, TSs, in_out_cnt, iter, inner_work, total);
 	// mtime1 = gettime();
 	// mtimetot = mtime1 - mtime0;
 	// printf("%f\n",mtimetot);
@@ -4054,6 +4054,7 @@ void computeOmegaValues_gpu22 (omega_struct * omega, int omegaIndex, cor_t ** co
 	omega[omegaIndex].maxRightIndex = maxRightIndex;
 
 	free(omegas);
+	free(indexes);
 	free(LR);
 	free(km);
 	free(TSs);
