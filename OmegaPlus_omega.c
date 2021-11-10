@@ -3946,14 +3946,6 @@ void computeOmega_gpu22(float * omegas, unsigned int * indexes, float * LR, int 
 	err=clEnqueueReadBuffer(
 			io_queue, omega_buffer, CL_FALSE, 0,
 			global*sizeof(float), omegas,
-			0, NULL, NULL
-			);
-	printCLErr(err,__LINE__,__FILE__);
-
-	//read back indexes values in indexes buffer
-	err=clEnqueueReadBuffer(
-			io_queue, index_buffer, CL_FALSE, 0,
-			global*sizeof(unsigned int), indexes,
 			0, NULL, &events[1]
 			);
 	printCLErr(err,__LINE__,__FILE__);
