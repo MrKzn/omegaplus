@@ -3996,7 +3996,7 @@ void computeOmegaValues_gpu22 (omega_struct * omega, int omegaIndex, cor_t ** co
 	iter = (tot_groups +  (occ * comp_units - 1)) /  (occ * comp_units);
 
 	omegas = malloc(sizeof(*omegas)*total);
-	indexes = malloc(sizeof(*indexes)*global);
+	indexes = malloc(sizeof(*indexes)*total);
 	LR = malloc(sizeof(*LR)*in_out_cnt);
 	km = malloc(sizeof(*km)*in_out_cnt);
 	TSs = malloc(sizeof(*TSs)*total);
