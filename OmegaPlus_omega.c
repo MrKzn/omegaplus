@@ -3979,8 +3979,11 @@ void computeOmegaValues_gpu22 (omega_struct * omega, int omegaIndex, cor_t ** co
 	inner_cnt = rightMaxIndex - rightMinIndex + 1;
 	outer_work = (outer_cnt + group_size - 1) & -group_size;
 	inner_work = (inner_cnt + group_size - 1) & -group_size;
-	in_out_cnt = outer_work + inner_work;
 	total = outer_work * inner_work;
+	outer_work = outer_cnt;		// this takes a few nanoseconds more altough not multiple of group size, total time 2ms faster due to less transfer
+	inner_work = inner_cnt;
+	in_out_cnt = outer_work + inner_work;
+	
 
 	tot_groups = total / group_size;
 
@@ -5156,11 +5159,11 @@ void gpu_init(void)
                         &comp_units, NULL);
     printCLErr(err,__LINE__,__FILE__);
 
-	group_size = pref_group_size; //max_group_size/4; //variate!!
+	group_size = pref_group_size*4; //Seems very optimal //max_group_size/4; //variate!!
 
 	// work_items = group_size * 72;			//variate!!
-	occ = 24;
-	work_items = group_size * comp_units * occ;
+	occ = 16;
+	work_items = group_size * comp_units * occ;		//K80 has 13x2 CUs so 4*16=64/2=32wf/warps/CU
 
 	printf("Set work-group size: %lu, Set work-items: %lu\n", group_size, work_items);
 
