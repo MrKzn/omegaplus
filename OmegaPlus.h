@@ -435,13 +435,14 @@ unsigned int cs_c;
 // #define OMEGA_NAME "omega9"
 // #define OMEGA_NAME "omegatest"
 // #define OMEGA_NAME "omega13"
-#define OMEGA_NAME "omega14"
+// #define OMEGA_NAME "omega14"
 // #define OMEGA_NAME "omega15"
 // #define OMEGA_NAME "omega16"
 // #define OMEGA_NAME "omega17"
 // #define OMEGA_NAME "omega18"
 // #define OMEGA_NAME "omega19"
 // #define OMEGA_NAME "omegatest2"
+#define OMEGA_NAME "omega22"
 #define OMEGA_NAME2 ""
 // #define OMEGA_NAME2 "omega10"
 // #define OMEGA_NAME2 "omega3"
@@ -472,6 +473,7 @@ cl_kernel omega_kernels[2];
 cl_uint comp_units;
 size_t group_size;
 size_t work_items;
+unsigned int occ;
 
 void gpu_init(void);
 

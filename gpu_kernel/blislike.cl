@@ -1978,3 +1978,39 @@ __kernel void omega19 (
 
   omega[i] =  numerator / denominator;
 }
+
+__kernel void omega22 (
+    __global float *omega, __constant float *lr, __constant float *ts, __constant int *km, int inner, int iter
+) {
+  const unsigned int ig = get_global_id(0);
+  const unsigned int gs = get_global_size(0);
+  unsigned int igc = ig;
+
+  unsigned int maxI, i;
+  float tmpW, maxW = 0.0f;
+
+  for(i=0; i<iter; i++){
+    unsigned int outer_i = igc / inner + inner;
+	  unsigned int inner_i = igc % inner;
+
+    int vk = km[outer_i];
+    int ksel2 = (vk * (vk-1)) / 2;
+
+    int vm = km[inner_i];
+    int msel2 = (vm * (vm-1)) / 2;
+
+    float n = (lr[outer_i] + lr[inner_i]) / (ksel2 + msel2);
+
+    float d = (ts[igc] - lr[outer_i] - lr[inner_i]) / (vk*vm) + 0.00001f;
+
+    tmpW = n / d;
+
+    if(tmpW > maxW){
+      maxW = tmpW;
+      maxI = i;
+    }
+    igc += gs;
+  }
+
+  omega[ig] = maxW;
+}
