@@ -1991,6 +1991,7 @@ __kernel void omega22 (
   float l, r, t, n, d, tmpW, maxW = 0.0f;
   int k, m, ksel2, msel2;
 
+  #pragma unroll 8
   for(i=0; i<iter; i++){
     O_i = G_ic / in_cnt + in_cnt;
 	  I_i = G_ic % in_cnt;

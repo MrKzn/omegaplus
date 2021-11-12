@@ -3972,7 +3972,7 @@ void computeOmegaValues_gpu22 (omega_struct * omega, int omegaIndex, cor_t ** co
 	static int * km = NULL;
 	int i, j, maxLeftIndex=0, maxRightIndex=0, L_SNP_pad, R_SNP_pad, 
 	
-	iter, L_SNP, R_SNP, tot_SNP, T_i=0, Lk_i, Rm_i=0, tot_step_pad,
+	iter, L_SNP, R_SNP, tot_SNP, T_i=0, Lk_i=0, Rm_i=0, tot_step_pad, loops,
 	
 	omegaSNIPIndex = omega[omegaIndex].omegaPos - omega[omegaIndex].leftIndex,
 
@@ -3986,100 +3986,185 @@ void computeOmegaValues_gpu22 (omega_struct * omega, int omegaIndex, cor_t ** co
 
 	L_SNP = leftMinIndex - leftMaxIndex + 1;
 	R_SNP = rightMaxIndex - rightMinIndex + 1;
-	// L_SNP_pad = (L_SNP + group_size - 1) & -group_size;	// Maybe make multiple of wavefront warp size?
-	R_SNP_pad = (R_SNP + group_size - 1) & -group_size;
-	// tot_step_pad = L_SNP_pad * R_SNP_pad;
-	tot_step_pad = L_SNP * R_SNP_pad;
-	int loops = min(tot_step_pad, work_items);
-	// L_SNP_pad = L_SNP;		// this takes a few nanoseconds more altough not multiple of group size, tot_step_pad time 2ms faster due to less transfer
-	// R_SNP_pad = R_SNP;
-	// tot_SNP = L_SNP_pad + R_SNP_pad;
-	// tot_groups = tot_step_pad / group_size;
-	// tot_groups_pad = ((tot_groups + comp_units - 1) / comp_units) * comp_units;
-	iter = (tot_step_pad +  work_items - 1) /  work_items;
-
-	tot_step_pad = iter * work_items;
-	L_SNP_pad = (tot_step_pad / R_SNP_pad) + 1;
-	tot_SNP = R_SNP_pad + L_SNP_pad;
-
-	omegas = malloc(sizeof(*omegas)*loops);
-	indexes = malloc(sizeof(*indexes)*loops);
-	LR = malloc(sizeof(*LR)*tot_SNP);
-	km = malloc(sizeof(*km)*tot_SNP);
-	T = malloc(sizeof(*T)*tot_step_pad);
-
-	if(omegas==NULL || indexes==NULL || LR==NULL || km==NULL || T==NULL)
-		printf("MALLOC error\n");
-
-	for(i=R_SNP_pad;i<R_SNP_pad+L_SNP_pad;i++)
+	if(L_SNP < R_SNP)
 	{
-		LR[i] = 0.0f;
-		km[i] = 2;
+		R_SNP_pad = (R_SNP + group_size - 1) & -group_size;
+		tot_step_pad = L_SNP * R_SNP_pad;
+		loops = min(tot_step_pad, work_items);
+		iter = (tot_step_pad +  work_items - 1) /  work_items;
+
+		tot_step_pad = iter * work_items;
+		L_SNP_pad = (tot_step_pad / R_SNP_pad) + 1;
+		tot_SNP = R_SNP_pad + L_SNP_pad;
+
+		omegas = malloc(sizeof(*omegas)*loops);
+		indexes = malloc(sizeof(*indexes)*loops);
+		LR = malloc(sizeof(*LR)*tot_SNP);
+		km = malloc(sizeof(*km)*tot_SNP);
+		T = malloc(sizeof(*T)*tot_step_pad);
+
+		if(omegas==NULL || indexes==NULL || LR==NULL || km==NULL || T==NULL)
+			printf("MALLOC error\n");
+
+		// Optimize this!!! Maybe less values needed
+		for(i=R_SNP_pad;i<R_SNP_pad+L_SNP_pad;i++)
+		{
+			LR[i] = 0.0f;
+			km[i] = 2;
+		}
+		for(i=0;i<R_SNP_pad;i++)
+		{
+			LR[i] = 0.0f;
+			km[i] = 2;
+			T[i] = 10000.0f;
+		}
+		for(i=R_SNP_pad;i<tot_step_pad;i++)
+		{
+			T[i] = 10000.0f;
+		}
+
+		Lk_i = R_SNP_pad;
+		
+		for (i=leftMinIndex;i>=leftMaxIndex;i--) // Left Side
+		{
+			LR[Lk_i] = correlationMatrix[omegaSNIPIndex][i];			// LSs
+
+			km[Lk_i] = omegaSNIPIndex - i + 1;							// ks
+
+			for(j=rightMinIndex;j<=rightMaxIndex;j++) // Right Side
+			{
+				if(!(Lk_i-R_SNP_pad))
+				{
+					LR[Rm_i] = correlationMatrix[j][omegaSNIPIndex+1];	// RSs
+
+					km[Rm_i] = j - omegaSNIPIndex;						// ms
+
+					Rm_i++;
+				}
+				
+				T[T_i] = correlationMatrix[j][i];
+				T_i++;
+			}
+			// for(;T_i<R_SNP_pad;T_i++)
+			// {
+			// 	T[T_i] = -1;
+			// }
+			Lk_i++;
+			T_i += R_SNP_pad - R_SNP;
+		}
+
+		// mtime0 = gettime();
+		computeOmega_gpu22(omegas, indexes, LR, km, T, tot_SNP, iter, R_SNP_pad, tot_step_pad, loops);
+		// mtime1 = gettime();
+		// mtimetot += mtime1 - mtime0;
+		// printf("%f\n",mtimetot);
+
+		for(i=0;i<loops;i++)
+		{
+			tmpW = omegas[i];
+			// Validate
+			// if(tmpW != omegasVal[i])
+			// 	printf("NOT EQUAL!! %d, %f, %f\n",i,tmpW,omegasVal[i]);
+			if(tmpW>maxW)
+			{
+				maxW = tmpW;
+				index = i;
+			}
+		}
+
+		maxLeftIndex = (leftMinIndex - ((indexes[index] * work_items + index)/R_SNP_pad)) + omega[omegaIndex].leftIndex;
+		maxRightIndex = (rightMinIndex + ((indexes[index] * work_items + index)%R_SNP_pad)) + omega[omegaIndex].leftIndex;
 	}
-	for(i=0;i<R_SNP_pad;i++)
+	else
 	{
-		LR[i] = 0.0f;
-		km[i] = 2;
-	}
-	for(i=0;i<tot_step_pad;i++)
-	{
-		T[i] = 10000.0f;
-	}
+		L_SNP_pad = (L_SNP + group_size - 1) & -group_size;
+		tot_step_pad = R_SNP * L_SNP_pad;
+		loops = min(tot_step_pad, work_items);
+		iter = (tot_step_pad +  work_items - 1) /  work_items;
 
-	Lk_i = R_SNP_pad;
-	
-	for (i=leftMinIndex;i>=leftMaxIndex;i--) // Left Side
-	{
-		LR[Lk_i] = correlationMatrix[omegaSNIPIndex][i];			// LSs
+		tot_step_pad = iter * work_items;
+		R_SNP_pad = (tot_step_pad / L_SNP_pad) + 1;
+		tot_SNP = L_SNP_pad + R_SNP_pad;
 
-		km[Lk_i] = omegaSNIPIndex - i + 1;							// ks
+		omegas = malloc(sizeof(*omegas)*loops);
+		indexes = malloc(sizeof(*indexes)*loops);
+		LR = malloc(sizeof(*LR)*tot_SNP);
+		km = malloc(sizeof(*km)*tot_SNP);
+		T = malloc(sizeof(*T)*tot_step_pad);
 
+		if(omegas==NULL || indexes==NULL || LR==NULL || km==NULL || T==NULL)
+			printf("MALLOC error\n");
+
+		// Optimize this!!! Maybe less values needed
+		for(i=L_SNP_pad;i<L_SNP_pad+R_SNP_pad;i++)
+		{
+			LR[i] = 0.0f;
+			km[i] = 2;
+		}
+		for(i=0;i<L_SNP_pad;i++)
+		{
+			LR[i] = 0.0f;
+			km[i] = 2;
+			T[i] = 10000.0f;
+		}
+		for(i=L_SNP_pad;i<tot_step_pad;i++)
+		{
+			T[i] = 10000.0f;
+		}
+
+		Rm_i = L_SNP_pad;
+		
 		for(j=rightMinIndex;j<=rightMaxIndex;j++) // Right Side
 		{
-			if(!(Lk_i-R_SNP_pad))
-			{
-				LR[Rm_i] = correlationMatrix[j][omegaSNIPIndex+1];	// RSs
+			LR[Rm_i] = correlationMatrix[j][omegaSNIPIndex+1];	// RSs
 
-				km[Rm_i] = j - omegaSNIPIndex;						// ms
-
-				Rm_i++;
-			}
+			km[Rm_i] = j - omegaSNIPIndex;						// ms
 			
-			T[T_i] = correlationMatrix[j][i];
-			T_i++;
+			for (i=leftMinIndex;i>=leftMaxIndex;i--) // Left Side
+			{
+				if(!(Rm_i-L_SNP_pad))
+				{
+					LR[Lk_i] = correlationMatrix[omegaSNIPIndex][i];			// LSs
+
+					km[Lk_i] = omegaSNIPIndex - i + 1;							// ks
+
+					Lk_i++;
+				}
+				
+				T[T_i] = correlationMatrix[j][i];
+				T_i++;
+			}
+			// for(;T_i<R_SNP_pad;T_i++)
+			// {
+			// 	T[T_i] = -1;
+			// }
+			Rm_i++;
+			T_i += L_SNP_pad - L_SNP;
 		}
-		// for(;T_i<R_SNP_pad;T_i++)
-		// {
-		// 	T[T_i] = -1;
-		// }
-		Lk_i++;
-		T_i += R_SNP_pad - R_SNP;
-	}
 
-	// mtime0 = gettime();
-	computeOmega_gpu22(omegas, indexes, LR, km, T, tot_SNP, iter, R_SNP_pad, tot_step_pad, loops);
-	// mtime1 = gettime();
-	// mtimetot = mtime1 - mtime0;
-	// printf("%f\n",mtimetot);
+		// mtime0 = gettime();
+		computeOmega_gpu22(omegas, indexes, LR, km, T, tot_SNP, iter, L_SNP_pad, tot_step_pad, loops);
+		// mtime1 = gettime();
+		// mtimetot += mtime1 - mtime0;
+		// printf("%f\n",mtimetot);
 
-	for(i=0;i<loops;i++)
-	{
-		tmpW = omegas[i];
-		// Validate
-		// if(tmpW != omegasVal[i])
-		// 	printf("NOT EQUAL!! %d, %f, %f\n",i,tmpW,omegasVal[i]);
-		if(tmpW>maxW)
+		for(i=0;i<loops;i++)
 		{
-			maxW = tmpW;
-			if(maxW > 2)
-				printf("max: %f, %d, %d, %u, %u, %u, %u\n",maxW, i, iter, L_SNP_pad, R_SNP_pad, R_SNP, L_SNP);
-			index = i;
+			tmpW = omegas[i];
+			// Validate
+			// if(tmpW != omegasVal[i])
+			// 	printf("NOT EQUAL!! %d, %f, %f\n",i,tmpW,omegasVal[i]);
+			if(tmpW>maxW)
+			{
+				maxW = tmpW;
+				index = i;
+			}
 		}
+
+		maxLeftIndex = (leftMinIndex - ((indexes[index] * work_items + index)/L_SNP_pad)) + omega[omegaIndex].leftIndex;
+		maxRightIndex = (rightMinIndex + ((indexes[index] * work_items + index)%L_SNP_pad)) + omega[omegaIndex].leftIndex;
 	}
-
-	maxLeftIndex = (leftMinIndex - ((indexes[index] * work_items + index)/R_SNP_pad)) + omega[omegaIndex].leftIndex;
-	maxRightIndex = (rightMinIndex + ((indexes[index] * work_items + index)%R_SNP_pad)) + omega[omegaIndex].leftIndex;
-
+	
 	omega[omegaIndex].maxValue = maxW;
 	omega[omegaIndex].maxLeftIndex  = maxLeftIndex;
 	omega[omegaIndex].maxRightIndex = maxRightIndex;
