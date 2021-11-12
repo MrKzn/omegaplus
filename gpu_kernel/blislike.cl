@@ -1980,28 +1980,36 @@ __kernel void omega19 (
 }
 
 __kernel void omega22 (
-    __global float *omega, __constant float *lr, __constant float *ts, __constant int *km, int inner, int iter
+    __global float *omega, __global unsigned int *index_global, __constant float *lr,
+    __constant float *ts,__constant int *km, int in_cnt, int iter
 ) {
-  const unsigned int ig = get_global_id(0);
-  const unsigned int gs = get_global_size(0);
-  unsigned int igc = ig;
+  const unsigned int G_i = get_global_id(0);
+  const unsigned int G_s = get_global_size(0);
+  unsigned int O_i, I_i, G_ic = G_i;
 
   unsigned int maxI, i;
-  float tmpW, maxW = 0.0f;
+  float l, r, t, n, d, tmpW, maxW = 0.0f;
+  int k, m, ksel2, msel2;
 
   for(i=0; i<iter; i++){
-    unsigned int outer_i = igc / inner + inner;
-	  unsigned int inner_i = igc % inner;
+    O_i = G_ic / in_cnt + in_cnt;
+	  I_i = G_ic % in_cnt;
 
-    int vk = km[outer_i];
-    int ksel2 = (vk * (vk-1)) / 2;
+    k = km[O_i];
+    ksel2 = (k * (k-1)) / 2;
 
-    int vm = km[inner_i];
-    int msel2 = (vm * (vm-1)) / 2;
+    m = km[I_i];
+    msel2 = (m * (m-1)) / 2;
 
-    float n = (lr[outer_i] + lr[inner_i]) / (ksel2 + msel2);
+    n = (lr[O_i] + lr[I_i]) / (ksel2 + msel2);
 
-    float d = (ts[igc] - lr[outer_i] - lr[inner_i]) / (vk*vm) + 0.00001f;
+    d = (ts[G_ic] - lr[O_i] - lr[I_i]) / (k * m) + 0.00001f;
+
+    // r = lr[O_i];
+    // m = km[I_i];
+    // t = ts[G_ic];
+    // n = (l + r) / ((k * (k-1)) / 2 + (m * (m-1)) / 2);
+    // d = (t - l - r) / (k * m) + 0.00001f;
 
     tmpW = n / d;
 
@@ -2009,8 +2017,10 @@ __kernel void omega22 (
       maxW = tmpW;
       maxI = i;
     }
-    igc += gs;
+    // maxW = tmpW > maxW ? tmpW : maxW;
+    G_ic += G_s;
   }
 
-  omega[ig] = maxW;
+  omega[G_i] = maxW;
+  index_global[G_i] = maxI;
 }
