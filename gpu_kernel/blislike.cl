@@ -2005,19 +2005,12 @@ __kernel void omega22 (
 
     d = (ts[G_ic] - lr[O_i] - lr[I_i]) / (k * m) + 0.00001f;
 
-    // r = lr[O_i];
-    // m = km[I_i];
-    // t = ts[G_ic];
-    // n = (l + r) / ((k * (k-1)) / 2 + (m * (m-1)) / 2);
-    // d = (t - l - r) / (k * m) + 0.00001f;
-
     tmpW = n / d;
 
     if(tmpW > maxW){
       maxW = tmpW;
       maxI = i;
     }
-    // maxW = tmpW > maxW ? tmpW : maxW;
     G_ic += G_s;
   }
 

@@ -3879,7 +3879,7 @@ void computeOmegaValues_gpu19 (omega_struct * omega, int omegaIndex, cor_t ** co
 	free(ms);
 }
 
-void computeOmega_gpu22(float * omegas, unsigned int * indexes, float * LR, int * km, float * TSs, int in_out_cnt, int iter, int inner, unsigned int total){
+void computeOmega_gpu22(float * omegas, unsigned int * indexes, float * LR, int * km, float * TSs, int in_out_cnt, int iter, int inner, unsigned int total, int loops){
 	static cl_ulong p_start, p_end, p_total=0;
 	// static double ttime0, ttime1, ttot = 0;
 
@@ -3945,7 +3945,7 @@ void computeOmega_gpu22(float * omegas, unsigned int * indexes, float * LR, int 
 	//read back omega values in omega buffer
 	err=clEnqueueReadBuffer(
 			io_queue, omega_buffer, CL_FALSE, 0,
-			global*sizeof(float), omegas,
+			loops*sizeof(float), omegas,
 			0, NULL, NULL
 			// 1, &events[1], NULL
 			);
@@ -3954,7 +3954,7 @@ void computeOmega_gpu22(float * omegas, unsigned int * indexes, float * LR, int 
 	//read back indexes values in indexes buffer
 	err=clEnqueueReadBuffer(
 			io_queue, index_buffer, CL_FALSE, 0,
-			global*sizeof(unsigned int), indexes,
+			loops*sizeof(unsigned int), indexes,
 			0, NULL, &events[2]
 			);
 	printCLErr(err,__LINE__,__FILE__);
@@ -3966,13 +3966,13 @@ void computeOmegaValues_gpu22 (omega_struct * omega, int omegaIndex, cor_t ** co
 {
 	// static double mtime0, mtime1, mtimetot = 0;
 	float tmpW, maxW=0.0;
-	static float * omegas = NULL, * LR = NULL, * TSs = NULL;
+	static float * omegas = NULL, * LR = NULL, * T = NULL;
 
-	unsigned int total, index=0, * indexes = NULL;
+	unsigned int * indexes = NULL, index=0;
 	static int * km = NULL;
-	int i, j, maxLeftIndex=0, maxRightIndex=0, outer_work, inner_work, work_total, iter,
+	int i, j, maxLeftIndex=0, maxRightIndex=0, L_SNP_pad, R_SNP_pad, 
 	
-	outer_cnt, inner_cnt, in_out_cnt, inner_i=0, Lk_i, Rm_i=0, work_groups, tot_groups, tot_groups_pad, 
+	iter, L_SNP, R_SNP, tot_SNP, T_i=0, Lk_i, Rm_i=0, tot_step_pad,
 	
 	omegaSNIPIndex = omega[omegaIndex].omegaPos - omega[omegaIndex].leftIndex,
 
@@ -3984,49 +3984,49 @@ void computeOmegaValues_gpu22 (omega_struct * omega, int omegaIndex, cor_t ** co
 
 	rightMaxIndex = omega[omegaIndex].rightIndex - omega[omegaIndex].leftIndex;
 
-	outer_cnt = leftMinIndex - leftMaxIndex + 1;
-	inner_cnt = rightMaxIndex - rightMinIndex + 1;
-	outer_work = (outer_cnt + group_size - 1) & -group_size;	// Maybe make multiple of wavefront warp size?
-	inner_work = (inner_cnt + group_size - 1) & -group_size;
-	// total = outer_work * inner_work;
-	total = outer_cnt * inner_work;
-	// outer_work = outer_cnt;		// this takes a few nanoseconds more altough not multiple of group size, total time 2ms faster due to less transfer
-	// inner_work = inner_cnt;
-	// in_out_cnt = outer_work + inner_work;
-
-	// tot_groups = total / group_size;
+	L_SNP = leftMinIndex - leftMaxIndex + 1;
+	R_SNP = rightMaxIndex - rightMinIndex + 1;
+	// L_SNP_pad = (L_SNP + group_size - 1) & -group_size;	// Maybe make multiple of wavefront warp size?
+	R_SNP_pad = (R_SNP + group_size - 1) & -group_size;
+	// tot_step_pad = L_SNP_pad * R_SNP_pad;
+	tot_step_pad = L_SNP * R_SNP_pad;
+	int loops = min(tot_step_pad, work_items);
+	// L_SNP_pad = L_SNP;		// this takes a few nanoseconds more altough not multiple of group size, tot_step_pad time 2ms faster due to less transfer
+	// R_SNP_pad = R_SNP;
+	// tot_SNP = L_SNP_pad + R_SNP_pad;
+	// tot_groups = tot_step_pad / group_size;
 	// tot_groups_pad = ((tot_groups + comp_units - 1) / comp_units) * comp_units;
-	iter = (total +  work_items - 1) /  work_items;
+	iter = (tot_step_pad +  work_items - 1) /  work_items;
 
-	total = iter * work_items;
-	outer_work = (total / inner_work) + 1;
-	in_out_cnt = inner_work + outer_work;
+	tot_step_pad = iter * work_items;
+	L_SNP_pad = (tot_step_pad / R_SNP_pad) + 1;
+	tot_SNP = R_SNP_pad + L_SNP_pad;
 
-	omegas = malloc(sizeof(*omegas)*total);
-	indexes = malloc(sizeof(*indexes)*total);
-	LR = malloc(sizeof(*LR)*in_out_cnt);
-	km = malloc(sizeof(*km)*in_out_cnt);
-	TSs = malloc(sizeof(*TSs)*total);	// TRY CALLOC FOR ALL BUFFERS AND CHECK IF COMPLETE SIZE IS WRITTEN
+	omegas = malloc(sizeof(*omegas)*loops);
+	indexes = malloc(sizeof(*indexes)*loops);
+	LR = malloc(sizeof(*LR)*tot_SNP);
+	km = malloc(sizeof(*km)*tot_SNP);
+	T = malloc(sizeof(*T)*tot_step_pad);
 
-	for(i=inner_work;i<inner_work+outer_work;i++)
-	{
-		LR[i] = 0.0f;
-		km[i] = 2;
-	}
-	for(i=0;i<inner_work;i++)
-	{
-		LR[i] = 0.0f;
-		km[i] = 2;
-	}
-	for(i=0;i<total;i++)
-	{
-		TSs[i] = 10000.0f;
-	}
-
-	if(omegas==NULL || LR==NULL || km==NULL || TSs==NULL)
+	if(omegas==NULL || indexes==NULL || LR==NULL || km==NULL || T==NULL)
 		printf("MALLOC error\n");
 
-	Lk_i = inner_work;
+	for(i=R_SNP_pad;i<R_SNP_pad+L_SNP_pad;i++)
+	{
+		LR[i] = 0.0f;
+		km[i] = 2;
+	}
+	for(i=0;i<R_SNP_pad;i++)
+	{
+		LR[i] = 0.0f;
+		km[i] = 2;
+	}
+	for(i=0;i<tot_step_pad;i++)
+	{
+		T[i] = 10000.0f;
+	}
+
+	Lk_i = R_SNP_pad;
 	
 	for (i=leftMinIndex;i>=leftMaxIndex;i--) // Left Side
 	{
@@ -4036,7 +4036,7 @@ void computeOmegaValues_gpu22 (omega_struct * omega, int omegaIndex, cor_t ** co
 
 		for(j=rightMinIndex;j<=rightMaxIndex;j++) // Right Side
 		{
-			if(!(Lk_i-inner_work))
+			if(!(Lk_i-R_SNP_pad))
 			{
 				LR[Rm_i] = correlationMatrix[j][omegaSNIPIndex+1];	// RSs
 
@@ -4045,36 +4045,23 @@ void computeOmegaValues_gpu22 (omega_struct * omega, int omegaIndex, cor_t ** co
 				Rm_i++;
 			}
 			
-			TSs[inner_i] = correlationMatrix[j][i];
-			inner_i++;
+			T[T_i] = correlationMatrix[j][i];
+			T_i++;
 		}
-		// for(;inner_i<inner_work;inner_i++)
+		// for(;T_i<R_SNP_pad;T_i++)
 		// {
-		// 	TSs[inner_i] = -1;
+		// 	T[T_i] = -1;
 		// }
 		Lk_i++;
-		inner_i += inner_work - inner_cnt;
+		T_i += R_SNP_pad - R_SNP;
 	}
 
 	// mtime0 = gettime();
-	computeOmega_gpu22(omegas, indexes, LR, km, TSs, in_out_cnt, iter, inner_work, total);
+	computeOmega_gpu22(omegas, indexes, LR, km, T, tot_SNP, iter, R_SNP_pad, tot_step_pad, loops);
 	// mtime1 = gettime();
 	// mtimetot = mtime1 - mtime0;
 	// printf("%f\n",mtimetot);
-	// int x = work_items / inner_work;
-	// printf("%d, %u, %u,%u,%u\n",x, iter, work_items, inner_work, outer_work);
-	// getchar();
-	// for(i=0;i<x;i++){
-	// 	for(j=0;j<inner_cnt;j++){
-	// 		tmpW = omegas[i * inner_work + j];
-	// 		if(tmpW>maxW)
-	// 		{
-	// 			maxW = tmpW;
-	// 			index = i * inner_cnt + j;
-	// 		}
-	// 	}
-	// }
-	int loops = min(outer_cnt*inner_work, work_items);
+
 	for(i=0;i<loops;i++)
 	{
 		tmpW = omegas[i];
@@ -4085,13 +4072,13 @@ void computeOmegaValues_gpu22 (omega_struct * omega, int omegaIndex, cor_t ** co
 		{
 			maxW = tmpW;
 			if(maxW > 2)
-				printf("max: %f, %d, %d, %u, %u, %u, %u\n",maxW, i, iter, outer_work, inner_work, inner_cnt, outer_cnt);
+				printf("max: %f, %d, %d, %u, %u, %u, %u\n",maxW, i, iter, L_SNP_pad, R_SNP_pad, R_SNP, L_SNP);
 			index = i;
 		}
 	}
 
-	maxLeftIndex = (leftMinIndex - ((indexes[index] * work_items + index)/inner_work)) + omega[omegaIndex].leftIndex;
-	maxRightIndex = (rightMinIndex + ((indexes[index] * work_items + index)%inner_work)) + omega[omegaIndex].leftIndex;
+	maxLeftIndex = (leftMinIndex - ((indexes[index] * work_items + index)/R_SNP_pad)) + omega[omegaIndex].leftIndex;
+	maxRightIndex = (rightMinIndex + ((indexes[index] * work_items + index)%R_SNP_pad)) + omega[omegaIndex].leftIndex;
 
 	omega[omegaIndex].maxValue = maxW;
 	omega[omegaIndex].maxLeftIndex  = maxLeftIndex;
@@ -4101,7 +4088,7 @@ void computeOmegaValues_gpu22 (omega_struct * omega, int omegaIndex, cor_t ** co
 	free(indexes);
 	free(LR);
 	free(km);
-	free(TSs);
+	free(T);
 }
 
 #ifdef _USE_PTHREADS
