@@ -1334,14 +1334,16 @@ void gpu_init(void)
     free(name);
     free(vendor);
 
-    int gpu, result;
-    do{
-        printf("Which GPU do you want to use (enter # and press enter): ");
-        result = scanf("%d", &gpu);
-        if(result == 0)
-            while (fgetc(stdin) != '\n'); // Read until a newline is found
-    } while (result == EOF || result == 0 || gpu >= num_devices);
-
+    int gpu = 0, result;
+    if(num_devices > 1)
+    {
+        do{
+            printf("Which GPU do you want to use (enter # and press enter): ");
+            result = scanf("%d", &gpu);
+            if(result == 0)
+                while (fgetc(stdin) != '\n'); // Read until a newline is found
+        } while (result == EOF || result == 0 || gpu >= num_devices);
+    }
 
     context=clCreateContext(NULL, 1, &devices[gpu], NULL, NULL, &err);
     printCLErr(err,__LINE__,__FILE__);
