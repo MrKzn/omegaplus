@@ -3919,6 +3919,8 @@ void computeOmega_gpu1(float * omegas, unsigned int * indexes, float * LR, int *
 			);
 	printCLErr(err,__LINE__,__FILE__);
 
+	printf("global: %lu, local: %lu\n",global, local);
+
 	//deploy kernel to execute program
 	err=clEnqueueNDRangeKernel(
 			io_queue, omega_kernel, 1, NULL, &global, &local,
