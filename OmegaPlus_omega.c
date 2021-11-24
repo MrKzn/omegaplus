@@ -878,7 +878,7 @@ void computeOmega_gpu3(float * omegas, float * LR, int * km, float * TSs, int in
 			);
 	printCLErr(err,__LINE__,__FILE__);
 
-	// clFinish(io_queue);
+	clFinish(io_queue);
 }
 
 void computeOmegaValues_gpu3 (omega_struct * omega, int omegaIndex, cor_t ** correlationMatrix, void * threadData)
@@ -976,7 +976,6 @@ void computeOmegaValues_gpu3 (omega_struct * omega, int omegaIndex, cor_t ** cor
 	free(LR);
 	free(km);
 	free(TSs);
-	clFinish(io_queue);
 }
 
 void computeOmega_gpu4(float * maxW, unsigned int * maxI, float * LRkm, float * TSs, int in_out_cnt, int inner_cnt, unsigned int total){
@@ -3919,8 +3918,6 @@ void computeOmega_gpu1(float * omegas, unsigned int * indexes, float * LR, int *
 			);
 	printCLErr(err,__LINE__,__FILE__);
 
-	printf("global: %lu, local: %lu\n",global, local);
-
 	//deploy kernel to execute program
 	err=clEnqueueNDRangeKernel(
 			io_queue, omega_kernel, 1, NULL, &global, &local,
@@ -5231,7 +5228,7 @@ void gpu_init(void)
     err=clGetDeviceIDs(platforms[0], CL_DEVICE_TYPE_GPU, num_devices, devices, NULL);
     printCLErr(err,__LINE__,__FILE__);
 
-	int gpu = 0;
+	int gpu = 1;
    
     context=clCreateContext(NULL, 1, &devices[gpu], NULL, NULL, &err);
     printCLErr(err,__LINE__,__FILE__);
@@ -5312,11 +5309,17 @@ void gpu_init(void)
                         &global_mem, NULL);
     printCLErr(err,__LINE__,__FILE__);
 
+	cl_ulong constant_mem;
+	err=clGetDeviceInfo(devices[gpu], CL_DEVICE_MAX_CONSTANT_BUFFER_SIZE,sizeof(constant_mem),
+                        &constant_mem, NULL);
+    printCLErr(err,__LINE__,__FILE__);
+
 	// Omega buffers
 	cl_ulong omega_buffer_size= 2 * GPU_BLOCK_MC * GPU_BLOCK_KC * sizeof(float);
+	cl_ulong indexes_buffer_size= 2 * GPU_BLOCK_MC * GPU_BLOCK_KC * sizeof(float);
 	cl_ulong LS_buffer_size= max(2 * GPU_BLOCK_MC * sizeof(float), wi_ind * sizeof(float));
 	cl_ulong RS_buffer_size= 2 * GPU_BLOCK_MC * sizeof(float);
-	cl_ulong TS_buffer_size= 512*42000*sizeof(float);
+	cl_ulong TS_buffer_size= 512*42000*sizeof(float);			// align 4kB 4096*x
 	cl_ulong k_buffer_size= 2 * GPU_BLOCK_MC * sizeof(int);
 	cl_ulong m_buffer_size= 2 * GPU_BLOCK_MC * sizeof(int);
 	cl_ulong LRkm_buffer_size= 4 * GPU_BLOCK_MC * sizeof(float);
@@ -5373,7 +5376,13 @@ void gpu_init(void)
 	}
 	else if(strcmp(OMEGA_NAME, "omega22") == 0){
 		omega_buffer_size = wi_ind * 2 * sizeof(float);
-		total += 2 * omega_buffer_size + LRkm_buffer_size + TS_buffer_size;
+		indexes_buffer_size = wi_ind * 2 * sizeof(int);
+		/* On colab nVidia cards constant memory (64kB) overflow is not tolerated and gives kernel arg. errors at kernelndrange
+		the number of SNPs in every sub-region can only be 65536/2buffers/2sub-buffers/4bytes=4096SNPs 
+		On K80 changed __constant to __global is 700us faster?!!?!?*/
+		LS_buffer_size = k_buffer_size = constant_mem / 2;		// align 4kB 4096*x
+		printf("C: %lu\n",constant_mem);
+		total += 2 * omega_buffer_size + LS_buffer_size + k_buffer_size + TS_buffer_size;
 	}
 	else{
 		printf("Wrong kernel name\n");
@@ -5543,7 +5552,7 @@ void gpu_init(void)
 		err |= clSetKernelArg(omega_kernel, 8, sizeof(cl_mem), &m_buffer);
 		printCLErr(err,__LINE__,__FILE__);
 	}
-	else if(strcmp(OMEGA_NAME, "omega7") == 0 || strcmp(OMEGA_NAME, "omega8") == 0 || strcmp(OMEGA_NAME, "omega6") == 0 || strcmp(OMEGA_NAME, "omega9") == 0 || strcmp(OMEGA_NAME, "omega10") == 0 || strcmp(OMEGA_NAME, "omega22") == 0){
+	else if(strcmp(OMEGA_NAME, "omega7") == 0 || strcmp(OMEGA_NAME, "omega8") == 0 || strcmp(OMEGA_NAME, "omega6") == 0 || strcmp(OMEGA_NAME, "omega9") == 0 || strcmp(OMEGA_NAME, "omega10") == 0){
 		omega_buffer=clCreateBuffer(context, CL_MEM_WRITE_ONLY, omega_buffer_size, NULL, &err);
 		printCLErr(err,__LINE__,__FILE__);
 		index_buffer=clCreateBuffer(context, CL_MEM_WRITE_ONLY, omega_buffer_size, NULL, &err);
@@ -5709,6 +5718,26 @@ void gpu_init(void)
 			err |= clSetKernelArg(omega_kernels[i], 3, sizeof(cl_mem), &m_buf[i]);
 			printCLErr(err,__LINE__,__FILE__);
 		}
+	}
+	else if(strcmp(OMEGA_NAME, "omega22") == 0){
+		omega_buffer=clCreateBuffer(context, CL_MEM_WRITE_ONLY, omega_buffer_size, NULL, &err);
+		printCLErr(err,__LINE__,__FILE__);
+		index_buffer=clCreateBuffer(context, CL_MEM_WRITE_ONLY, indexes_buffer_size, NULL, &err);
+		printCLErr(err,__LINE__,__FILE__);
+		LR_buffer=clCreateBuffer(context, CL_MEM_READ_ONLY, LS_buffer_size, NULL, &err);
+		printCLErr(err,__LINE__,__FILE__);
+		TS_buffer=clCreateBuffer(context, CL_MEM_READ_ONLY, TS_buffer_size, NULL, &err);
+		printCLErr(err,__LINE__,__FILE__);
+		km_buffer=clCreateBuffer(context, CL_MEM_READ_ONLY, k_buffer_size, NULL, &err);
+		printCLErr(err,__LINE__,__FILE__);
+
+		// set kernel arguements for buffers
+		err |= clSetKernelArg(omega_kernel, 0, sizeof(cl_mem), &omega_buffer);
+		err |= clSetKernelArg(omega_kernel, 1, sizeof(cl_mem), &index_buffer);
+		err |= clSetKernelArg(omega_kernel, 2, sizeof(cl_mem), &LR_buffer);
+		err |= clSetKernelArg(omega_kernel, 3, sizeof(cl_mem), &TS_buffer);
+		err |= clSetKernelArg(omega_kernel, 4, sizeof(cl_mem), &km_buffer);
+		printCLErr(err,__LINE__,__FILE__);
 	}
 	// Overlap double buffer test //
 	else{

@@ -1979,6 +1979,7 @@ __kernel void omega19 (
   omega[i] =  numerator / denominator;
 }
 
+// On K80 changed __constant to __global is 700us faster?!!?!? Size of __global buffer doesn't matter!
 __kernel void omega22 (
     __global float *omega, __global unsigned int *index, __constant float *LR,
     __global float *TS,__constant int *km, int in_cnt, int wi_load
