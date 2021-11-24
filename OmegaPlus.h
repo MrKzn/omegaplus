@@ -472,7 +472,7 @@ cl_kernel omega_kernels[2];
 
 cl_uint comp_units;
 size_t group_size;
-size_t work_items;
+size_t wi_ind;
 
 void gpu_init(void);
 

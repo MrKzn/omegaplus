@@ -1980,41 +1980,47 @@ __kernel void omega19 (
 }
 
 __kernel void omega22 (
-    __global float *omega, __global unsigned int *index_global, __constant float *lr,
-    __constant float *ts,__constant int *km, int in_cnt, int iter
+    __global float *omega, __global unsigned int *index, __constant float *LR,
+    __global float *TS,__constant int *km, int in_cnt, int wi_load
 ) {
   const unsigned int G_i = get_global_id(0);
   const unsigned int G_s = get_global_size(0);
-  unsigned int O_i, I_i, G_ic = G_i;
+  unsigned int O_inc = G_s / in_cnt, O_i = G_i / in_cnt + in_cnt, I_i = G_i % in_cnt, G_ic = G_i;
 
   unsigned int maxI, i;
-  float l, r, t, n, d, tmpW, maxW = 0.0f;
-  int k, m, ksel2, msel2;
+  float n, d, tmpW, maxW = 0.0f, R_L;
+  int k_m, m_k, k_msel2, m_ksel2;
 
-  #pragma unroll 8
-  for(i=0; i<iter; i++){
-    O_i = G_ic / in_cnt + in_cnt;
-	  I_i = G_ic % in_cnt;
+  m_k = km[I_i];
+  m_ksel2 = (m_k * (m_k-1)) / 2;
 
-    k = km[O_i];
-    ksel2 = (k * (k-1)) / 2;
+  R_L = LR[I_i];
 
-    m = km[I_i];
-    msel2 = (m * (m-1)) / 2;
+  #pragma unroll 4
+  for(i=0; i<wi_load; i++){
+    // O_i = G_ic / in_cnt + in_cnt;
+	  // I_i = G_ic % in_cnt;
 
-    n = (lr[O_i] + lr[I_i]) / (ksel2 + msel2);
+    k_m = km[O_i];
+    k_msel2 = (k_m * (k_m-1)) / 2;
 
-    d = (ts[G_ic] - lr[O_i] - lr[I_i]) / (k * m) + 0.00001f;
+    // m_k = km[I_i];
+    // m_ksel2 = (m_k * (m_k-1)) / 2;
+
+    n = (LR[O_i] + R_L) / (k_msel2 + m_ksel2);
+
+    d = (TS[G_ic] - LR[O_i] - R_L) / (k_m * m_k) + 0.00001f;
 
     tmpW = n / d;
 
     if(tmpW > maxW){
       maxW = tmpW;
-      maxI = i;
+      maxI = G_ic;
     }
+    O_i += O_inc;
     G_ic += G_s;
   }
 
   omega[G_i] = maxW;
-  index_global[G_i] = maxI;
+  index[G_i] = maxI;
 }
