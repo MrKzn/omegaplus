@@ -1979,10 +1979,10 @@ __kernel void omega19 (
   omega[i] =  numerator / denominator;
 }
 
-// On K80 changed __constant to __global is 700us faster?!!?!? Size of __global buffer doesn't matter!
+// On K80 changed __constant to __global is 700us faster?!!?!? Size of __global buffer doesn't matter! Same with HD8750m
 __kernel void omega22 (
-    __global float *omega, __global unsigned int *index, __constant float *LR,
-    __global float *TS,__constant int *km, int in_cnt, int wi_load
+    __global float *omega, __global unsigned int *index, __global float *LR,
+    __global float *TS,__global int *km, int in_cnt, int wi_load
 ) {
   const unsigned int G_i = get_global_id(0);
   const unsigned int G_s = get_global_size(0);

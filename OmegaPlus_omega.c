@@ -5380,8 +5380,7 @@ void gpu_init(void)
 		/* On colab nVidia cards constant memory (64kB) overflow is not tolerated and gives kernel arg. errors at kernelndrange
 		the number of SNPs in every sub-region can only be 65536/2buffers/2sub-buffers/4bytes=4096SNPs 
 		On K80 changed __constant to __global is 700us faster?!!?!?*/
-		LS_buffer_size = k_buffer_size = constant_mem / 2;		// align 4kB 4096*x
-		printf("C: %lu\n",constant_mem);
+		LS_buffer_size = k_buffer_size = 262144; //constant_mem / 2;		// align 4kB 4096*x
 		total += 2 * omega_buffer_size + LS_buffer_size + k_buffer_size + TS_buffer_size;
 	}
 	else{
