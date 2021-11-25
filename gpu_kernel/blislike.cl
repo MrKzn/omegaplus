@@ -687,25 +687,25 @@ __kernel void omega2 (
   // Use int4 and float4??
 }
 
+// __global vs __constant no diff!?
 __kernel void omega3 (
-    __global float *omega, __constant float *lr, __constant float *ts, __constant int *km, int inner
+    __global float *omega, __global float *LR, __global float *TS, __global int *km, int in_cnt
 ) {
-  const unsigned int i = get_global_id(0);
+  const unsigned int G_i = get_global_id(0);
 
-  unsigned int outer_i = i / inner + inner;
-	unsigned int inner_i = i % inner;
+  unsigned int O_i = G_i / in_cnt + in_cnt;
+  unsigned int I_i = G_i % in_cnt;
 
-  int vk = km[outer_i];
-  int ksel2 = (vk * (vk-1)) / 2;
+  int k_m = km[O_i];
+  int k_msel2 = (k_m * (k_m-1)) / 2;
 
-  int vm = km[inner_i];
-  int msel2 = (vm * (vm-1)) / 2;
+  int m_k = km[I_i];
+  int m_ksel2 = (m_k * (m_k-1)) / 2;
 
-  float n = (lr[outer_i] + lr[inner_i]) / (ksel2 + msel2);
+  float n = (LR[O_i] + LR[I_i]) / (k_msel2 + m_ksel2);
 
-  float d = (ts[i] - lr[outer_i] - lr[inner_i]) / (vk*vm) + 0.00001f;
-
-  omega[i] = n / d;
+  float d = (TS[G_i] - LR[O_i] - LR[I_i]) / (k_m * m_k) + DENOMINATOR_OFFSET_GPU;
+  omega[G_i] = n / d;
 }
 
 // __kernel void omega4 (
@@ -2010,7 +2010,7 @@ __kernel void omega22 (
 
     n = (LR[O_i] + R_L) / (k_msel2 + m_ksel2);
 
-    d = (TS[G_ic] - LR[O_i] - R_L) / (k_m * m_k) + 0.00001f;
+    d = (TS[G_ic] - LR[O_i] - R_L) / (k_m * m_k) + DENOMINATOR_OFFSET_GPU;
 
     tmpW = n / d;
 
