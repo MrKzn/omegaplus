@@ -4020,7 +4020,7 @@ void computeOmega_gpu1(float * omegas, unsigned int * indexes, float * LR, int *
 
 void computeOmegaValues_gpu22 (omega_struct * omega, int omegaIndex, cor_t ** correlationMatrix, void * threadData)
 {
-	static double mtime0, mtime1, mtimetot = .0;
+	// static double mtime0, mtime1, mtimetot = .0;
 	float tmpW, maxW=0.0f;
 	static float * omegas = NULL, * LR = NULL, * TS = NULL, * TS_local;
 
@@ -4043,7 +4043,7 @@ void computeOmegaValues_gpu22 (omega_struct * omega, int omegaIndex, cor_t ** co
 
 	L_SNP = leftMinIndex - leftMaxIndex + 1;
 	R_SNP = rightMaxIndex - rightMinIndex + 1;
-	mtime0 = gettime();
+	// mtime0 = gettime();
 	if(L_SNP < R_SNP)
 	{
 		R_SNP_pad = (R_SNP + group_size - 1) & -group_size;
@@ -4121,7 +4121,7 @@ void computeOmegaValues_gpu22 (omega_struct * omega, int omegaIndex, cor_t ** co
 			LR[Lk_i] = 0.0f;
 			km[Lk_i] = 2;
 		}
-		mtime1 = gettime();
+		// mtime1 = gettime();
 		// mtime0 = gettime();
 		computeOmega_gpu1(omegas, indexes, LR, km, TS, tot_SNP_pad, wi_load, R_SNP_pad, tot_step_pad, wi_func, set_wi);
 		// mtime1 = gettime();
@@ -4223,7 +4223,7 @@ void computeOmegaValues_gpu22 (omega_struct * omega, int omegaIndex, cor_t ** co
 			LR[Rm_i] = 0.0f;
 			km[Rm_i] = 2;
 		}
-		mtime1 = gettime();
+		// mtime1 = gettime();
 		// mtime0 = gettime();
 		computeOmega_gpu1(omegas, indexes, LR, km, TS, tot_SNP_pad, wi_load, L_SNP_pad, tot_step_pad, wi_func, set_wi);
 		// mtime1 = gettime();
@@ -4242,8 +4242,9 @@ void computeOmegaValues_gpu22 (omega_struct * omega, int omegaIndex, cor_t ** co
 				index = i;
 			}
 		}
-		mtimetot += mtime1 - mtime0;
-		printf("%f\n",mtimetot);
+		// mtimetot += mtime1 - mtime0;
+		// printf("%f\n",mtimetot);
+		
 		// maxLeftIndex = (leftMinIndex - ((indexes[index] * work_items + index)/L_SNP_pad)) + omega[omegaIndex].leftIndex;
 		// maxRightIndex = (rightMinIndex + ((indexes[index] * work_items + index)%L_SNP_pad)) + omega[omegaIndex].leftIndex;
 		maxLeftIndex = (leftMinIndex - (indexes[index]%L_SNP_pad)) + omega[omegaIndex].leftIndex;
