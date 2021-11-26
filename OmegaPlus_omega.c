@@ -203,6 +203,7 @@ float computeOmega (float LS, float RS, float TS, int k, int ksel2, int m, int m
 
 void computeOmegaValues (omega_struct * omega, int omegaIndex, cor_t ** correlationMatrix, void * threadData)
 {
+	static double ttime0, ttime1, ttime = .0;
 	float LS, RS, TS, tmpW = 0.0, maxW=0.0;
 
 	int i, j, ksel2, msel2, k, m, maxLeftIndex=0, maxRightIndex=0,
@@ -410,9 +411,11 @@ void computeOmegaValues (omega_struct * omega, int omegaIndex, cor_t ** correlat
 				msel2 = (m * (m-1)) / 2;
 					
 				TS = correlationMatrix[j][i];
-
+				ttime0 = gettime();
 				tmpW = computeOmega(LS, RS, TS, k, ksel2, m, msel2);
-	
+				ttime1 = gettime();
+				ttime += ttime1 - ttime0;
+				printf("%f\n",ttime);
 				if(tmpW>maxW)
 				{
 					maxW = tmpW;

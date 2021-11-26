@@ -872,7 +872,7 @@ int main(int argc, char** argv)
 	int maxomegamaxLeftIndex = -1;
 	int maxomegamaxRightIndex = -1;
 
-	double time0, time1, totalTimeL=.0, totalTimeG0 = gettime(), totalTimeG1;
+	double time0, time1, totalTimeL=.0, totalTimeG0 = gettime(), totalTimeG1, testtime0, testtime1, testtime=.0;
 
   	char** recfile = malloc(sizeof(char*));
   	      *recfile = NULL;
@@ -1730,9 +1730,11 @@ int main(int argc, char** argv)
 			    computeCorrelationMatrixPairwise (alignment, omega, cvw_i, firstRowToCompute, functionData, NULL,NULL);					
 			    
 			    applyCorrelationMatrixAdditions (omega, cvw_i,firstRowToAdd,alignment->correlationMatrix);
-			    
+			    testtime0 = gettime();
 			    computeOmegas (alignment, omega, cvw_i, functionData,NULL);
-			    
+			    testtime1 = gettime();
+				testtime += testtime1 - testtime0;
+				printf("%f\n",testtime);
 			    lvw_i = cvw_i;
 			  }
 			
