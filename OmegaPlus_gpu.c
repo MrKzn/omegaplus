@@ -192,8 +192,8 @@ void computeOmega_gpu2(float * omegas, unsigned int * indexes, float * LR, int *
 
 void computeOmegaValues_gpu (omega_struct * omega, int omegaIndex, cor_t ** correlationMatrix, void * threadData)
 {
-	// static double mtime0, mtime1, mtimetot = 0;
-	float tmpW, maxW=0.0;
+	// static double mtime0, mtime1, mtimetot = .0;
+	float tmpW, maxW=0.0f;
 	static float * omegas = NULL, * LR = NULL, * TS = NULL;
 
 	unsigned int * indexes = NULL, index=0;
@@ -270,11 +270,11 @@ void computeOmegaValues_gpu (omega_struct * omega, int omegaIndex, cor_t ** corr
 		}
 		
 		for(i=L_SNP_pad+R_SNP;i<tot_SNP;i++){
-			LR[i] = 1;
+			LR[i] = 1.0f;
 			km[i] = 0;
 		}
 		for(i=L_SNP;i<L_SNP_pad;i++){
-			LR[i] = 1;
+			LR[i] = 1.0f;
 			km[i] = 0;
 		}
 
