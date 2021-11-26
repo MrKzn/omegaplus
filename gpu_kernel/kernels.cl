@@ -641,7 +641,7 @@ __kernel void blis_like4x8v2 (
 }
 
 __kernel void omega1 (
-    __global float *omega, __constant float *LR, __constant float *TS, __constant int *km, int in_cnt
+    __global float *omega, __constant float *LR, __global float *TS, __constant int *km, int in_cnt
 ) {
   const unsigned int G_i = get_global_id(0);
 
