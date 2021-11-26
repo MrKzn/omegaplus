@@ -883,8 +883,8 @@ void computeOmega_gpu3(float * omegas, float * LR, int * km, float * TS, int tot
 
 void computeOmegaValues_gpu3 (omega_struct * omega, int omegaIndex, cor_t ** correlationMatrix, void * threadData)
 {
-	// static double mtime0, mtime1, mtimetot = 0;
-	float tmpW, maxW=0.0;
+	// static double mtime0, mtime1, mtimetot = .0;
+	float tmpW, maxW=0.0f;
 	static float * omegas = NULL, * LR = NULL, * TS = NULL, * TS_local;
 
 	unsigned int index=0;
@@ -4020,8 +4020,8 @@ void computeOmega_gpu1(float * omegas, unsigned int * indexes, float * LR, int *
 
 void computeOmegaValues_gpu22 (omega_struct * omega, int omegaIndex, cor_t ** correlationMatrix, void * threadData)
 {
-	static double mtime0, mtime1, mtimetot = 0;
-	float tmpW, maxW=0.0;
+	static double mtime0, mtime1, mtimetot = .0;
+	float tmpW, maxW=0.0f;
 	static float * omegas = NULL, * LR = NULL, * TS = NULL, * TS_local;
 
 	unsigned int * indexes = NULL, index=0;
