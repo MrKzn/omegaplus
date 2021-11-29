@@ -641,7 +641,7 @@ __kernel void blis_like4x8v2 (
 }
 
 __kernel void omega1 (
-    __global float *omega, __constant float *LR, __global float *TS, __constant int *km, int in_cnt
+    __global float *omega, __global float *LR, __global float *TS, __global int *km, int in_cnt
 ) {
   const unsigned int G_i = get_global_id(0);
 
@@ -661,92 +661,91 @@ __kernel void omega1 (
 }
 
 __kernel void omega2 (
-    __global float *omega_global, __global unsigned int *index_global, __constant float *lr, 
-    __constant float *ts, __constant int *km, int outer, int inner
+    __global float *omega, __global unsigned int *index, __global float *LR,
+    __global float *TS,__global int *km, int in_cnt, int wi_load
 ) {
-  unsigned int ig = get_global_id(0);
-  unsigned int ws = get_local_size(0);
-  unsigned int wg = get_group_id(0);
+  const unsigned int G_i = get_global_id(0);
+  const unsigned int G_s = get_global_size(0);
+  unsigned int O_inc = G_s / in_cnt, O_i = G_i / in_cnt + in_cnt, I_i = G_i % in_cnt, G_ic = G_i;
 
-  unsigned int io = ig % outer;
-  unsigned int st = wg / (outer / ws) * ws + outer;
-
-  const float den_off = 0.00001f;
   unsigned int maxI, i;
+  float n, d, tmpW, maxW = 0.0f, R_L;
+  int k_m, m_k, k_msel2, m_ksel2;
 
-  float l, r, t, n, d, tmpW, maxW = 0.0f;
-  int k, m, ks, ms;
+  m_k = km[I_i];
+  m_ksel2 = (m_k * (m_k-1)) / 2;
 
-  l = lr[io];
-  k = km[io];
-  // ks = (k * (k-1)) / 2;
+  R_L = LR[I_i];
 
-  #pragma unroll 8
-  for(i = st; i < ws + st; i++){
-    r = lr[i];
-    m = km[i];
-    t = ts[i - outer + io * inner];
+  #pragma unroll 4
+  for(i=0; i<wi_load; i++){
+    k_m = km[O_i];
+    k_msel2 = (k_m * (k_m-1)) / 2;
 
-    // ms = (m * (m-1)) / 2;
-    n = (l + r) / ((k * (k-1)) / 2 + (m * (m-1)) / 2);
-    d = (t - l - r) / (k * m) + den_off;
+    n = (LR[O_i] + R_L) / (k_msel2 + m_ksel2);
+
+    d = (TS[G_ic] - LR[O_i] - R_L) / (k_m * m_k) + DENOMINATOR_OFFSET_GPU;
+
     tmpW = n / d;
 
     if(tmpW > maxW){
       maxW = tmpW;
-      maxI = i;
+      maxI = G_ic;
     }
+    O_i += O_inc;
+    G_ic += G_s;
   }
-  omega_global[ig] = maxW;
-  index_global[ig] = maxI - outer + io * inner;
+
+  omega[G_i] = maxW;
+  index[G_i] = maxI;
 }
 
-__kernel void omega3 (
-    __global float *omega_global, __global unsigned int *index_global, __constant float *lr, 
-    __global float *ts, __constant int *km, int outer, int inner,
-    __local float *lrs, __local int *lmss
-) {
-  unsigned int ig = get_global_id(0);
-  unsigned int il = get_local_id(0);
-  unsigned int ws = get_local_size(0);
-  unsigned int wg = get_group_id(0);
+// __kernel void omega3 (
+//     __global float *omega_global, __global unsigned int *index_global, __constant float *lr, 
+//     __global float *ts, __constant int *km, int outer, int inner,
+//     __local float *lrs, __local int *lmss
+// ) {
+//   unsigned int ig = get_global_id(0);
+//   unsigned int il = get_local_id(0);
+//   unsigned int ws = get_local_size(0);
+//   unsigned int wg = get_group_id(0);
 
-  unsigned int io = ig % outer;
-  unsigned int st = (wg / (outer / ws)) * ws + outer;
+//   unsigned int io = ig % outer;
+//   unsigned int st = (wg / (outer / ws)) * ws + outer;
 
-  const float den_off = 0.00001f;
-  unsigned int maxI, i, ii, ip = 0;
+//   const float den_off = 0.00001f;
+//   unsigned int maxI, i, ii, ip = 0;
 
-  float l, r, t, n, d, tmpW, maxW = 0.0f;
-  int k, m, ks, ms;
+//   float l, r, t, n, d, tmpW, maxW = 0.0f;
+//   int k, m, ks, ms;
 
-  l = lr[io];
-  k = km[io];
-  ks = (k * (k-1)) / 2;
+//   l = lr[io];
+//   k = km[io];
+//   ks = (k * (k-1)) / 2;
 
-  lrs[il] = lr[st + il];
-  lmss[il] = km[st + il];
+//   lrs[il] = lr[st + il];
+//   lmss[il] = km[st + il];
 
-  // Ensure writes have completed:
-  barrier(CLK_LOCAL_MEM_FENCE);   // Is stated in optimization guide since work group size is > 64
+//   // Ensure writes have completed:
+//   barrier(CLK_LOCAL_MEM_FENCE);   // Is stated in optimization guide since work group size is > 64
 
-  #pragma unroll 8
-  for(i = 0; i < ws; i++){
-    r = lrs[i];
-    m = lmss[i];
+//   #pragma unroll 8
+//   for(i = 0; i < ws; i++){
+//     r = lrs[i];
+//     m = lmss[i];
 
-    t = ts[i + st - outer + io * inner];
+//     t = ts[i + st - outer + io * inner];
 
-    ms = (m * (m-1)) / 2;
-    n = (l + r) / (ks + ms);
-    d = (t - l - r) / (k * m) + den_off;
-    tmpW = n / d;
+//     ms = (m * (m-1)) / 2;
+//     n = (l + r) / (ks + ms);
+//     d = (t - l - r) / (k * m) + den_off;
+//     tmpW = n / d;
 
-    if(tmpW > maxW){
-      maxW = tmpW;
-      maxI = i;
-    }
-  }
-  omega_global[ig] = maxW;
-  index_global[ig] = maxI + st - outer + io * inner;
-}
+//     if(tmpW > maxW){
+//       maxW = tmpW;
+//       maxI = i;
+//     }
+//   }
+//   omega_global[ig] = maxW;
+//   index_global[ig] = maxI + st - outer + io * inner;
+// }

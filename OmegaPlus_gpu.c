@@ -46,11 +46,11 @@ inline cl_ulong minlu(cl_ulong a, cl_ulong b)
 
 /*   ---  GPU Omega functions  ---   */
 void computeOmega_gpu1(float * omegas, float * LR, int * km, float * TS, int tot_SNP, int in_cnt, unsigned int tot_step){
-	static cl_ulong p_start, p_end, p_total=0;
+	// static cl_ulong p_start, p_end, p_total=0;
 	int err=0;
 
 	// //set kernel arguments
-	err = clSetKernelArg(omega_kernel2, 4, sizeof(int), &in_cnt);
+	err = clSetKernelArg(omega_kernel1, 4, sizeof(int), &in_cnt);
 	printCLErr(err,__LINE__,__FILE__);
 
 	const size_t local = max_group_size;
@@ -83,76 +83,7 @@ void computeOmega_gpu1(float * omegas, float * LR, int * km, float * TS, int tot
 
 	//deploy kernel to execute program
 	err=clEnqueueNDRangeKernel(
-			io_queue, omega_kernel2, 1, NULL, &global, &local,  //change name to 'omega_kernel1'
-			1, &events[0], &events[1]
-			);
-	printCLErr(err,__LINE__,__FILE__);
-
-	clWaitForEvents(1, &events[1]);
-
-    err=clGetEventProfilingInfo(events[1], CL_PROFILING_COMMAND_START, sizeof(cl_ulong),
-                            &p_start, NULL);
-	printCLErr(err,__LINE__,__FILE__);
-    err=clGetEventProfilingInfo(events[1], CL_PROFILING_COMMAND_END, sizeof(cl_ulong),
-                            &p_end, NULL);
-	printCLErr(err,__LINE__,__FILE__);
-
-	p_total = p_end - p_start;
-
-	printf("%lu\n",p_total);
-
-	//read back omega values in omega buffer
-	err=clEnqueueReadBuffer(
-			io_queue, omega_buffer, CL_FALSE, 0,
-			tot_step*sizeof(float), omegas,
-			// 1, &events[1], NULL
-            0, NULL, NULL
-			);
-	printCLErr(err,__LINE__,__FILE__);
-
-    clFinish(io_queue);
-}
-
-void computeOmega_gpu2(float * omegas, unsigned int * indexes, float * LR, int * km, float * TS, int tot_SNP, int L_SNP_pad, int R_SNP_pad, unsigned int tot_step_pad){
-	// static cl_ulong p_start, p_end, p_total=0;
-
-	int err=0;
-	const size_t local = pref_group_size;
-	const size_t global = work_items; 
-
-	// set kernel arguments
-	err |= clSetKernelArg(omega_kernel, 5, sizeof(cl_int), &L_SNP_pad);
-	err |= clSetKernelArg(omega_kernel, 6, sizeof(cl_int), &R_SNP_pad);
-	printCLErr(err,__LINE__,__FILE__);
-
-	// write values to GPU buffers
-	// LR
-	err=clEnqueueWriteBuffer(
-			io_queue, LR_buffer, CL_FALSE, 0,
-			tot_SNP*sizeof(float), LR,
-			0, NULL, NULL
-			);
-	printCLErr(err,__LINE__,__FILE__);
-
-	// TS
-	err=clEnqueueWriteBuffer(
-			io_queue, TS_buffer, CL_FALSE, 0,
-			tot_step_pad*sizeof(float), TS,
-			0, NULL, NULL
-			);
-	printCLErr(err,__LINE__,__FILE__);
-
-	// km
-	err=clEnqueueWriteBuffer(
-			io_queue, km_buffer, CL_FALSE, 0,
-			tot_SNP*sizeof(int), km,
-			0, NULL, &events[0]
-			);
-	printCLErr(err,__LINE__,__FILE__);
-
-	//deploy kernel to execute program
-	err=clEnqueueNDRangeKernel(
-			io_queue, omega_kernel, 1, NULL, &global, &local,
+			io_queue, omega_kernel1, 1, NULL, &global, &local,  //change name to 'omega_kernel1'
 			1, &events[0], &events[1]
 			);
 	printCLErr(err,__LINE__,__FILE__);
@@ -166,41 +97,111 @@ void computeOmega_gpu2(float * omegas, unsigned int * indexes, float * LR, int *
     //                         &p_end, NULL);
 	// printCLErr(err,__LINE__,__FILE__);
 
-	// p_total = p_end - p_start;
+	// p_total += p_end - p_start;
 
-	// printf("%lu\n",p_total);
+	// printf("1: %lu\n",p_total);
 
 	//read back omega values in omega buffer
 	err=clEnqueueReadBuffer(
 			io_queue, omega_buffer, CL_FALSE, 0,
-			global*sizeof(float), omegas,
+			tot_step*sizeof(float), omegas,
+			1, &events[1], &events[2]
+            // 0, NULL, &events[2]
+			);
+	printCLErr(err,__LINE__,__FILE__);
+
+	clWaitForEvents(1, &events[2]);
+}
+
+void computeOmega_gpu2(float * omegas, unsigned int * indexes, float * LR, int * km, float * TSs, int tot_SNP_pad, 
+						int wi_load, int in_cnt_pad, unsigned int tot_step_pad, int wi_func, size_t global){
+	// static cl_ulong p_start, p_end, p_total=0;
+
+	int err=0;
+	const size_t local = group_size;
+
+	// //set kernel arguments
+	err |= clSetKernelArg(omega_kernel2, 5, sizeof(cl_int), &in_cnt_pad);
+	err |= clSetKernelArg(omega_kernel2, 6, sizeof(cl_int), &wi_load);
+	printCLErr(err,__LINE__,__FILE__);
+
+	// write values to GPU buffers
+	// LR
+	err=clEnqueueWriteBuffer(
+			io_queue, LR_buffer, CL_FALSE, 0,
+			tot_SNP_pad*sizeof(float), LR,
+			0, NULL, NULL
+			);
+	printCLErr(err,__LINE__,__FILE__);
+
+	// TS
+	err=clEnqueueWriteBuffer(
+			io_queue, TS_buffer, CL_FALSE, 0,
+			tot_step_pad*sizeof(float), TSs,
+			0, NULL, NULL
+			);
+	printCLErr(err,__LINE__,__FILE__);
+
+	// km
+	err=clEnqueueWriteBuffer(
+			io_queue, km_buffer, CL_FALSE, 0,
+			tot_SNP_pad*sizeof(int), km,
+			0, NULL, &events[0]
+			);
+	printCLErr(err,__LINE__,__FILE__);
+
+	//deploy kernel to execute program
+	err=clEnqueueNDRangeKernel(
+			io_queue, omega_kernel2, 1, NULL, &global, &local,
+			1, &events[0], &events[1]
+			);
+	printCLErr(err,__LINE__,__FILE__);
+
+	// clWaitForEvents(1, &events[1]);
+
+    // err=clGetEventProfilingInfo(events[1], CL_PROFILING_COMMAND_START, sizeof(cl_ulong),
+    //                         &p_start, NULL);
+	// printCLErr(err,__LINE__,__FILE__);
+    // err=clGetEventProfilingInfo(events[1], CL_PROFILING_COMMAND_END, sizeof(cl_ulong),
+    //                         &p_end, NULL);
+	// printCLErr(err,__LINE__,__FILE__);
+
+	// p_total += p_end - p_start;
+
+	// printf("2: %lu\n",p_total);
+
+	//read back omega values in omega buffer
+	err=clEnqueueReadBuffer(
+			io_queue, omega_buffer, CL_FALSE, 0,
+			wi_func*sizeof(float), omegas,
+			// 0, NULL, NULL
 			1, &events[1], NULL
-            // 0, NULL, NULL
 			);
 	printCLErr(err,__LINE__,__FILE__);
 
 	//read back indexes values in indexes buffer
 	err=clEnqueueReadBuffer(
 			io_queue, index_buffer, CL_FALSE, 0,
-			global*sizeof(unsigned int), indexes,
-			0, NULL, NULL
+			wi_func*sizeof(unsigned int), indexes,
+			0, NULL, &events[2]
 			);
 	printCLErr(err,__LINE__,__FILE__);
 
-    clFinish(io_queue);
+	clWaitForEvents(1, &events[2]);
 }
 
 void computeOmegaValues_gpu (omega_struct * omega, int omegaIndex, cor_t ** correlationMatrix, void * threadData)
 {
 	// static double mtime0, mtime1, mtimetot = .0;
 	float tmpW, maxW=0.0f;
-	static float * omegas = NULL, * LR = NULL, * TS = NULL;
+	static float * omegas = NULL, * LR = NULL, * TS = NULL, * TS_local;
 
+    size_t set_wi;
 	unsigned int * indexes = NULL, index=0;
 	static int * km = NULL;
-	int i, j, maxLeftIndex=0, maxRightIndex=0, R_SNP_pad, L_SNP_pad,
+	int i, j, maxLeftIndex=0, maxRightIndex=0, R_SNP_pad, L_SNP_pad, tot_SNP_pad,
 	
-	tot_step, tot_step_pad, L_SNP, R_SNP, tot_SNP, T_i=0, L_i=0, R_i=0,
+	tot_step, tot_step_pad, L_SNP, R_SNP, tot_SNP, wi_load, wi_func, L_i=0, R_i=0,
 	
 	omegaSNIPIndex = omega[omegaIndex].omegaPos - omega[omegaIndex].leftIndex,
 
@@ -216,92 +217,10 @@ void computeOmegaValues_gpu (omega_struct * omega, int omegaIndex, cor_t ** corr
 	R_SNP = rightMaxIndex - rightMinIndex + 1;
 	tot_step = L_SNP * R_SNP;
 
-	if(tot_step > steps_thresh)	// Threshold
+	// if(tot_step < steps_thresh)	// Threshold
+    if(0)	// Threshold
 	{
-		// L_SNP_pad += group_size - (L_SNP & (group_size - 1));
-        L_SNP_pad = (L_SNP + pref_group_size - 1) & -pref_group_size;
-		// R_SNP_pad += group_size - (R_SNP & (group_size - 1));
-        R_SNP_pad = (R_SNP + pref_group_size - 1) & -pref_group_size;
-		tot_step_pad = L_SNP_pad * R_SNP_pad;
-		tot_SNP = L_SNP_pad + R_SNP_pad;
-
-		// work_groups = tot_step_pad / (group_size * group_size);
-		// work_items = group_size * work_groups;
-        work_items = tot_step_pad / pref_group_size;
-
-        if(work_items > max_omegas || tot_step > max_TS || tot_SNP > max_LRkm){
-            printf("Grid point %d is skipped due to insufficient GPU memory\n",omegaIndex);
-            return;
-        }
-
-		omegas = malloc(sizeof(*omegas)*work_items);
-		indexes = malloc(sizeof(*indexes)*work_items);
-		LR = malloc(sizeof(*LR) * tot_SNP);
-		km = malloc(sizeof(*km) * tot_SNP);
-		TS = malloc(sizeof(*TS) * tot_step_pad);
-
-		if(omegas==NULL || indexes==NULL || LR==NULL || km==NULL || TS==NULL)
-			printf("MALLOC error\n");
-
-		R_i = L_SNP_pad;
-
-		for (i=leftMinIndex;i>=leftMaxIndex;i--) // Left Side
-		{
-			LR[L_i] = correlationMatrix[omegaSNIPIndex][i];				// LSs
-
-			km[L_i] = omegaSNIPIndex - i + 1;							// ks
-
-			for(j=rightMinIndex;j<=rightMaxIndex;j++) // Right Side
-			{
-				if(!L_i)
-				{
-					LR[R_i] = correlationMatrix[j][omegaSNIPIndex+1];	// RSs
-
-					km[R_i] = j - omegaSNIPIndex;						// ms
-
-					R_i++;
-				}
-				
-				TS[T_i] = correlationMatrix[j][i];
-				T_i++;
-			}
-			L_i++;
-			T_i = L_i * R_SNP_pad;
-		}
-		
-		for(i=L_SNP_pad+R_SNP;i<tot_SNP;i++){
-			LR[i] = 1.0f;
-			km[i] = 0;
-		}
-		for(i=L_SNP;i<L_SNP_pad;i++){
-			LR[i] = 1.0f;
-			km[i] = 0;
-		}
-
-		// mtime0 = gettime();
-		computeOmega_gpu2(omegas, indexes, LR, km, TS, tot_SNP, L_SNP_pad, R_SNP_pad, tot_step_pad);
-		// mtime1 = gettime();
-		// mtimetot = mtime1 - mtime0;
-		// printf("%f\n",mtimetot);
-
-		for(i=0;i<work_items;i++)
-		{
-			tmpW = omegas[i];
-			if(tmpW>maxW)
-			{
-				maxW = tmpW;
-				index = i;
-			}
-		}
-
-		maxLeftIndex = (leftMinIndex - (indexes[index]/R_SNP_pad)) + omega[omegaIndex].leftIndex;
-		maxRightIndex = (rightMinIndex + (indexes[index]%R_SNP_pad)) + omega[omegaIndex].leftIndex;
-		
-		free(indexes);
-	}
-	else
-	{
-        /* Maybe try padding only the number of inner loop iterations to a mulitple of a smaller work-group size, e.g. 128
+		/* Maybe try padding only the number of inner loop iterations to a mulitple of a smaller work-group size, e.g. 128
         and pad the number of outer loop iterations to the minimal number needed (see omega22 colab). This would result in 
         solely coalesced memory accesses with still minimal number of total computation steps. */
         /* From execution times in 'FinalTimes2.ods' this doesn't seem to improve performance. */
@@ -312,13 +231,13 @@ void computeOmegaValues_gpu (omega_struct * omega, int omegaIndex, cor_t ** corr
         //     return;
         // }
 
-		omegas = malloc(sizeof(*omegas)*tot_step);
-		LR = malloc(sizeof(*LR)*tot_SNP);
-		km = malloc(sizeof(*km)*tot_SNP);
-		TS = malloc(sizeof(*TS)*tot_step);
+        omegas = malloc(sizeof(*omegas)*tot_step);
+        LR = malloc(sizeof(*LR)*tot_SNP);
+        km = malloc(sizeof(*km)*tot_SNP);
+        TS_local = TS = malloc(sizeof(*TS)*tot_step);
 
-		if(omegas==NULL || LR==NULL || km==NULL || TS==NULL)
-			printf("MALLOC error\n");
+        if(omegas==NULL || LR==NULL || km==NULL || TS==NULL)
+            printf("MALLOC error\n");
 
         if(R_SNP > L_SNP)
         {
@@ -340,11 +259,9 @@ void computeOmegaValues_gpu (omega_struct * omega, int omegaIndex, cor_t ** corr
 
                         R_i++;
                     }
-                    
-                    TS[T_i] = correlationMatrix[j][i];
 
-                    T_i++;
-                    // TS++;         increase pointer location, only possible if TS has its starting position
+                    TS_local[0] = correlationMatrix[j][i];
+                    TS_local++;
                 }
                 L_i++;
             }
@@ -352,8 +269,6 @@ void computeOmegaValues_gpu (omega_struct * omega, int omegaIndex, cor_t ** corr
             // mtime0 = gettime();
             computeOmega_gpu1(omegas, LR, km, TS, tot_SNP, R_SNP, tot_step);
             // mtime1 = gettime();
-            // mtimetot = mtime1 - mtime0;
-            // printf("%f\n",mtimetot);
 
             for(i=0;i<tot_step;i++)
             {
@@ -389,10 +304,8 @@ void computeOmegaValues_gpu (omega_struct * omega, int omegaIndex, cor_t ** corr
                         L_i++;
                     }
                     
-                    TS[T_i] = correlationMatrix[j][i];
-
-                    T_i++;
-                    // TS++;         increase pointer location, only possible if TS has its starting position
+                    TS_local[0] = correlationMatrix[j][i];
+                    TS_local++;
                 }
                 R_i++;
             }
@@ -400,8 +313,6 @@ void computeOmegaValues_gpu (omega_struct * omega, int omegaIndex, cor_t ** corr
             // mtime0 = gettime();
             computeOmega_gpu1(omegas, LR, km, TS, tot_SNP, L_SNP, tot_step);
             // mtime1 = gettime();
-            // mtimetot = mtime1 - mtime0;
-            // printf("%f\n",mtimetot);
 
             for(i=0;i<tot_step;i++)
             {
@@ -413,10 +324,181 @@ void computeOmegaValues_gpu (omega_struct * omega, int omegaIndex, cor_t ** corr
                 }
             }
 
-            maxLeftIndex = (leftMinIndex - (index/L_SNP)) + omega[omegaIndex].leftIndex;
-            maxRightIndex = (rightMinIndex + (index%L_SNP)) + omega[omegaIndex].leftIndex;
+            maxLeftIndex = (leftMinIndex - (index%L_SNP)) + omega[omegaIndex].leftIndex;
+            maxRightIndex = (rightMinIndex + (index/L_SNP)) + omega[omegaIndex].leftIndex;
         }
+	}
+	else
+	{
+        if(L_SNP < R_SNP)
+        {
+            R_SNP_pad = (R_SNP + group_size - 1) & -group_size;
+            set_wi = ((wi_ind + R_SNP_pad - 1) / R_SNP_pad) * R_SNP_pad;
+            tot_step_pad = L_SNP * R_SNP_pad;
+            wi_func = min(tot_step_pad, set_wi);		// not needed if dynamic kernel execution is used with step thresh
+            wi_load = (tot_step_pad + set_wi - 1) / set_wi;
+
+            tot_step_pad = wi_load * set_wi;
+            L_SNP_pad = (tot_step_pad + R_SNP_pad - 1) / R_SNP_pad;
+            tot_SNP_pad = R_SNP_pad + L_SNP_pad;
+
+            omegas = malloc(sizeof(*omegas)*wi_func);
+            indexes = malloc(sizeof(*indexes)*wi_func);
+            LR = malloc(sizeof(*LR)*tot_SNP_pad);
+            km = malloc(sizeof(*km)*tot_SNP_pad);
+            TS_local = TS = malloc(sizeof(*TS)*tot_step_pad);
+
+            if(omegas==NULL || indexes==NULL || LR==NULL || km==NULL || TS==NULL)
+                printf("MALLOC error\n");
+
+            L_i = R_SNP_pad;
+            
+            for (i=leftMinIndex;i>=leftMaxIndex;i--) // Left Side
+            {
+                LR[L_i] = correlationMatrix[omegaSNIPIndex][i];			// LSs
+
+                km[L_i] = omegaSNIPIndex - i + 1;							// ks
+
+                for(j=rightMinIndex;j<=rightMaxIndex;j++) // Right Side
+                {
+                    if(!(L_i-R_SNP_pad))
+                    {
+                        LR[R_i] = correlationMatrix[j][omegaSNIPIndex+1];	// RSs
+
+                        km[R_i] = j - omegaSNIPIndex;						// ms
+
+                        R_i++;
+                    }
+                    
+                    TS_local[0] = correlationMatrix[j][i];
+                    TS_local++;
+                }
+                for(;j<rightMinIndex+R_SNP_pad;j++)
+                {
+                    TS_local[0] = 100000000000.0f;
+                    TS_local++;
+                }
+                L_i++;
+            }
+            for(;R_i<R_SNP_pad;R_i++)
+            {
+                LR[R_i] = 0.0f;
+                km[R_i] = 2;
+            }
+            for(;L_i<tot_SNP_pad;L_i++)
+            {
+                LR[L_i] = 0.0f;
+                km[L_i] = 2;
+            }
+            for(i=L_SNP*R_SNP_pad;i<tot_step_pad;i++)
+            {
+                TS[i] = 100000000000.0f;
+            }
+
+            // mtime0 = gettime();
+            computeOmega_gpu2(omegas, indexes, LR, km, TS, tot_SNP_pad, wi_load, R_SNP_pad, tot_step_pad, wi_func, set_wi);
+            // mtime1 = gettime();
+
+            for(i=0;i<wi_func;i++)
+            {
+                tmpW = omegas[i];
+                if(tmpW>maxW)
+                {
+                    maxW = tmpW;
+                    index = i;
+                }
+            }
+
+            maxLeftIndex = (leftMinIndex - (indexes[index]/R_SNP_pad)) + omega[omegaIndex].leftIndex;
+            maxRightIndex = (rightMinIndex + (indexes[index]%R_SNP_pad)) + omega[omegaIndex].leftIndex;
+        }
+        else
+        {
+            L_SNP_pad = (L_SNP + group_size - 1) & -group_size;
+            set_wi = ((wi_ind + L_SNP_pad - 1) / L_SNP_pad) * L_SNP_pad;
+            tot_step_pad = R_SNP * L_SNP_pad;
+            wi_func = min(tot_step_pad, set_wi);		// not needed if dynamic kernel execution is used with step thresh
+            wi_load = (tot_step_pad + set_wi - 1) /  set_wi;
+
+            tot_step_pad = wi_load * set_wi;
+            R_SNP_pad = (tot_step_pad + L_SNP_pad - 1) / L_SNP_pad;
+            tot_SNP_pad = L_SNP_pad + R_SNP_pad;
+
+            omegas = malloc(sizeof(*omegas)*wi_func);
+            indexes = malloc(sizeof(*indexes)*wi_func);
+            LR = malloc(sizeof(*LR)*tot_SNP_pad);
+            km = malloc(sizeof(*km)*tot_SNP_pad);
+            TS_local = TS = malloc(sizeof(*TS)*tot_step_pad);
+
+            if(omegas==NULL || indexes==NULL || LR==NULL || km==NULL || TS==NULL)
+                printf("MALLOC error\n");
+
+            R_i = L_SNP_pad;
+            
+            for(j=rightMinIndex;j<=rightMaxIndex;j++) // Right Side
+            {
+                LR[R_i] = correlationMatrix[j][omegaSNIPIndex+1];	// RSs
+
+                km[R_i] = j - omegaSNIPIndex;						// ms
+                
+                for (i=leftMinIndex;i>=leftMaxIndex;i--) // Left Side
+                {
+                    if(!(R_i-L_SNP_pad))
+                    {
+                        LR[L_i] = correlationMatrix[omegaSNIPIndex][i];			// LSs
+
+                        km[L_i] = omegaSNIPIndex - i + 1;							// ks
+
+                        L_i++;
+                    }
+
+                    TS_local[0] = correlationMatrix[j][i];
+                    TS_local++;
+                }
+                for(;i>leftMinIndex-L_SNP_pad;i--)
+                {
+                    TS_local[0] = 100000000000.0f;
+                    TS_local++;
+                }
+                R_i++;
+            }
+            for(;L_i<L_SNP_pad;L_i++)
+            {
+                LR[L_i] = 0.0f;
+                km[L_i] = 2;
+            }
+            for(;R_i<tot_SNP_pad;R_i++)
+            {
+                LR[R_i] = 0.0f;
+                km[R_i] = 2;
+            }
+            for(i=R_SNP*L_SNP_pad;i<tot_step_pad;i++)
+            {
+                TS[i] = 100000000000.0f;
+            }
+
+            // mtime0 = gettime();
+            computeOmega_gpu2(omegas, indexes, LR, km, TS, tot_SNP_pad, wi_load, L_SNP_pad, tot_step_pad, wi_func, set_wi);
+            // mtime1 = gettime();
+
+            for(i=0;i<wi_func;i++)
+            {
+                tmpW = omegas[i];
+                if(tmpW>maxW)
+                {
+                    maxW = tmpW;
+                    index = i;
+                }
+            }
+
+            maxLeftIndex = (leftMinIndex - (indexes[index]%L_SNP_pad)) + omega[omegaIndex].leftIndex;
+            maxRightIndex = (rightMinIndex + (indexes[index]/L_SNP_pad)) + omega[omegaIndex].leftIndex;
+        }
+        free(indexes);
     }
+    // mtimetot += mtime1 - mtime0;
+    // if(omegaIndex > 995)
+        // printf("%f\n",mtimetot);
 	
 	omega[omegaIndex].maxValue = maxW;
 	omega[omegaIndex].maxLeftIndex  = maxLeftIndex;
@@ -1377,22 +1459,22 @@ void gpu_init(void)
     io_queue=clCreateCommandQueue(context, devices[gpu], CL_QUEUE_PROFILING_ENABLE, &err);
     printCLErr(err,__LINE__,__FILE__);
 
-    compute_queue=clCreateCommandQueue(context, devices[gpu], CL_QUEUE_PROFILING_ENABLE,
-                                       &err);
-    printCLErr(err,__LINE__,__FILE__);
+    // compute_queue=clCreateCommandQueue(context, devices[gpu], CL_QUEUE_PROFILING_ENABLE,
+    //                                    &err);
+    // printCLErr(err,__LINE__,__FILE__);
 
 	// create Omega kernel
-	omega_kernel=clCreateKernel(program, OMEGA_NAME, &err);
-	printCLErr(err,__LINE__,__FILE__);
-
-	// create second Omega kernel
 	omega_kernel2=clCreateKernel(program, OMEGA_NAME2, &err);
 	printCLErr(err,__LINE__,__FILE__);
 
+	// create second Omega kernel
+	omega_kernel1=clCreateKernel(program, OMEGA_NAME1, &err);
+	printCLErr(err,__LINE__,__FILE__);
+
 	// Get workgroup size or preferred size
-	err = clGetKernelWorkGroupInfo(omega_kernel2, devices[gpu],CL_KERNEL_WORK_GROUP_SIZE, sizeof(size_t), &max_group_size, NULL);
+	err = clGetKernelWorkGroupInfo(omega_kernel1, devices[gpu],CL_KERNEL_WORK_GROUP_SIZE, sizeof(size_t), &max_group_size, NULL);
 	// printf("Max kernel work-group size: %lu\n",max_group_size);	// 256
-	err = clGetKernelWorkGroupInfo(omega_kernel, devices[gpu],CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE, sizeof(size_t), &pref_group_size, NULL);
+	err = clGetKernelWorkGroupInfo(omega_kernel2, devices[gpu],CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE, sizeof(size_t), &pref_group_size, NULL);
 	// printf("Work-group pref. multiple: %lu\n",pref_group_size);	// 64
 
 	// Get number of work groups / compute units
@@ -1400,13 +1482,15 @@ void gpu_init(void)
                         &comp_units, NULL);
     printCLErr(err,__LINE__,__FILE__);
 
+    /* Move this to a header file in the final code, as well as other important parameters */
+	group_size = 128; 	// Seems very optimal on multiple architectures
+	int w_CU = 24;		// wavefronts/warps per compute unit
+	wi_ind = pref_group_size * w_CU * (comp_units);		//K80 has 13x2 CUs so w_size*32*2=32 w/CU
+	
     printf("Compute units: %u\n", comp_units);
+    printf("Set work-group size: %lu, Set work-items: %lu\n", group_size, wi_ind);
 
     steps_thresh = comp_units * pref_group_size * 32;
-
-    pref_group_size *= 1;
-
-	printf("Set work-group size: %lu\n", pref_group_size);
 
 	cl_ulong total;
 
@@ -1432,14 +1516,15 @@ void gpu_init(void)
 	// cl_ulong TS_buffer_size 	= omega_buffer_size;
 
     // Divide remaining memory correctly over needed buffers
-    cl_ulong remain = (cl_ulong)(0.8 * (global_mem - total));
-    remain = 41000 * 512 * sizeof(float);
+    cl_ulong remain = (cl_ulong)(0.8 * (global_mem - total));   // Does not work on HD8750M, makes kernels very slow
+    remain = GPU_BLOCK_MC * 8000 * sizeof(float);
 
-    double omega_portion = 1.0629/*34.0128*/, LRkm_portion = 5314.5, TS_portion = 1.0629;
+    // double omega_portion = 1.0629/*34.0128*/, LRkm_portion = 5314.5, TS_portion = 1.0629;
+    double omega_portion = 0.5, LRkm_portion = 0.003, TS_portion = 0.5;
 
-	cl_ulong omega_buffer_size 	= minlu(max_alloc, ((cl_ulong)(remain / omega_portion) / 256) * 256);		// # work items is unknown here, see omega2
-	cl_ulong LRkm_buffer_size 	= minlu(max_alloc, ((cl_ulong)(remain / LRkm_portion) / 256) * 256);
-	cl_ulong TS_buffer_size 	= minlu(max_alloc, ((cl_ulong)(remain / TS_portion) / 256) * 256);
+	cl_ulong omega_buffer_size 	= minlu(max_alloc, ((cl_ulong)(remain * omega_portion) / GPU_BLOCK_MC) * GPU_BLOCK_MC);		// # work items is unknown here, see omega2
+	cl_ulong LRkm_buffer_size 	= minlu(max_alloc, ((cl_ulong)(remain * LRkm_portion) / GPU_BLOCK_MC) * GPU_BLOCK_MC);
+	cl_ulong TS_buffer_size 	= minlu(max_alloc, ((cl_ulong)(remain * TS_portion) / GPU_BLOCK_MC) * GPU_BLOCK_MC);
 
 	total += 2 * omega_buffer_size + 2 * LRkm_buffer_size + TS_buffer_size;
 
@@ -1529,27 +1614,27 @@ void gpu_init(void)
 	printCLErr(err,__LINE__,__FILE__);
 
 	// set kernel arguements for buffers
-	// err |= clSetKernelArg(omega_kernel, 0, sizeof(cl_mem), &omega_buffer);
-	// err |= clSetKernelArg(omega_kernel, 1, sizeof(cl_mem), &index_buffer);
-	// err |= clSetKernelArg(omega_kernel, 2, sizeof(cl_mem), &LR_buffer);
-	// err |= clSetKernelArg(omega_kernel, 3, sizeof(cl_mem), &TS_buffer);
-	// err |= clSetKernelArg(omega_kernel, 4, sizeof(cl_mem), &km_buffer);
-	// printCLErr(err,__LINE__,__FILE__);
+	err |= clSetKernelArg(omega_kernel2, 0, sizeof(cl_mem), &omega_buffer);
+	err |= clSetKernelArg(omega_kernel2, 1, sizeof(cl_mem), &index_buffer);
+	err |= clSetKernelArg(omega_kernel2, 2, sizeof(cl_mem), &LR_buffer);
+	err |= clSetKernelArg(omega_kernel2, 3, sizeof(cl_mem), &TS_buffer);
+	err |= clSetKernelArg(omega_kernel2, 4, sizeof(cl_mem), &km_buffer);
+	printCLErr(err,__LINE__,__FILE__);
 
-    err |= clSetKernelArg(omega_kernel, 0, sizeof(cl_mem), &omega_buffer);
-    err |= clSetKernelArg(omega_kernel, 1, sizeof(cl_mem), &index_buffer);
-    err |= clSetKernelArg(omega_kernel, 2, sizeof(cl_mem), &LR_buffer);
-    err |= clSetKernelArg(omega_kernel, 3, sizeof(cl_mem), &TS_buffer);
-    err |= clSetKernelArg(omega_kernel, 4, sizeof(cl_mem), &km_buffer);
-    err |= clSetKernelArg(omega_kernel, 7, sizeof(cl_int) * pref_group_size, NULL);
-    err |= clSetKernelArg(omega_kernel, 8, sizeof(cl_int) * pref_group_size, NULL);
-    printCLErr(err,__LINE__,__FILE__);
+    // err |= clSetKernelArg(omega_kernel2, 0, sizeof(cl_mem), &omega_buffer);
+    // err |= clSetKernelArg(omega_kernel2, 1, sizeof(cl_mem), &index_buffer);
+    // err |= clSetKernelArg(omega_kernel2, 2, sizeof(cl_mem), &LR_buffer);
+    // err |= clSetKernelArg(omega_kernel2, 3, sizeof(cl_mem), &TS_buffer);
+    // err |= clSetKernelArg(omega_kernel2, 4, sizeof(cl_mem), &km_buffer);
+    // err |= clSetKernelArg(omega_kernel2, 7, sizeof(cl_int) * pref_group_size, NULL);
+    // err |= clSetKernelArg(omega_kernel2, 8, sizeof(cl_int) * pref_group_size, NULL);
+    // printCLErr(err,__LINE__,__FILE__);
 	
 	// set second kernel arguements for buffers
-	err |= clSetKernelArg(omega_kernel2, 0, sizeof(cl_mem), &omega_buffer);
-	err |= clSetKernelArg(omega_kernel2, 1, sizeof(cl_mem), &LR_buffer);
-	err |= clSetKernelArg(omega_kernel2, 2, sizeof(cl_mem), &TS_buffer);
-	err |= clSetKernelArg(omega_kernel2, 3, sizeof(cl_mem), &km_buffer);
+	err |= clSetKernelArg(omega_kernel1, 0, sizeof(cl_mem), &omega_buffer);
+	err |= clSetKernelArg(omega_kernel1, 1, sizeof(cl_mem), &LR_buffer);
+	err |= clSetKernelArg(omega_kernel1, 2, sizeof(cl_mem), &TS_buffer);
+	err |= clSetKernelArg(omega_kernel1, 3, sizeof(cl_mem), &km_buffer);
 	printCLErr(err,__LINE__,__FILE__);
 	
 
@@ -1587,14 +1672,15 @@ void gpu_init(void)
 void gpu_release(void)
 {
     // Omega
-	clReleaseKernel(omega_kernel);
-    clReleaseKernel(omega_kernel2);
+	clReleaseKernel(omega_kernel2);
+    clReleaseKernel(omega_kernel1);
 	clReleaseMemObject(omega_buffer);
 	clReleaseMemObject(TS_buffer);
 	clReleaseMemObject(LR_buffer);
 	clReleaseMemObject(km_buffer);
 	clReleaseMemObject(index_buffer);
-
+    // double ttime0, ttime1, ttime=.0;
+    // ttime0 = gettime();
 	for(int i=0; i < 2; i++)
     {
         clReleaseKernel(kernels[i]);
@@ -1605,8 +1691,10 @@ void gpu_release(void)
         //        for(int j=0; j < 4; j++)
         //            clReleaseEvent(events[(2*i)+j]);
     }
+    // ttime1 = gettime();
+    // printf("%f\n",ttime1-ttime0);
     clReleaseCommandQueue(io_queue);
-    clReleaseCommandQueue(compute_queue);
+    // clReleaseCommandQueue(compute_queue);
     clReleaseProgram(program);
     clReleaseContext(context);
     free(devices);

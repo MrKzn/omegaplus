@@ -810,11 +810,11 @@ int main(int argc, char** argv)
 	    lvw_i, // last valid w
 	    cvw_i, // current valid w
 #ifndef _USE_OPENMP_GENERIC
-#ifndef _USE_GPU
+// #ifndef _USE_GPU
 		firstRowToCopy = -1, 
 	    firstRowToCompute = 1,
 	    firstRowToAdd = 2,
-#endif
+// #endif
 #endif
 #endif
 	    matrixSizeMax = 0,
@@ -1687,9 +1687,19 @@ int main(int argc, char** argv)
 
 // GPU
 #ifdef _USE_GPU
-			qLD_res = correlate_gpu(alignment->compressedArrays[0], BCtable, alignment->segsites, alignment->siteSize, alignment->sequences);
+			// qLD_res = correlate_gpu(alignment->compressedArrays[0], BCtable, alignment->segsites, alignment->siteSize, alignment->sequences);
 
-			
+			// for(int i=0; i < 2; i++)
+			// {
+			// 	clReleaseKernel(kernels[i]);
+			// 	clReleaseMemObject(c_buffers[i]);
+			// 	clReleaseMemObject(b_buffers[i]);
+			// 	clReleaseMemObject(a_buffers[i]);
+			// 	// free(c_sub_matrix[i]);
+			// 	//        for(int j=0; j < 4; j++)
+			// 	//            clReleaseEvent(events[(2*i)+j]);
+			// }
+
 		    alignment->correlationMatrix = createCorrelationMatrix(alignment->correlationMatrix,matrixSizeMax);
 		    
 			lvw_i=-1;
@@ -1699,12 +1709,24 @@ int main(int argc, char** argv)
 
 				if(validGridP(cvw_i,grid))
 				{
-					computeCorrelationMatrixPairwise_gpu (alignment, omega, cvw_i, functionData, NULL,NULL, qLD_res);
+					// computeCorrelationMatrixPairwise_gpu (alignment, omega, cvw_i, functionData, NULL,NULL, qLD_res);
 
-					applyCorrelationMatrixAdditions_gpu (omega, cvw_i,alignment->correlationMatrix);
+					// applyCorrelationMatrixAdditions_gpu (omega, cvw_i,alignment->correlationMatrix);
 
-					computeOmegas_gpu(alignment, omega, cvw_i, functionData,NULL);
+					overlapCorrelationMatrixAdditions (alignment, omega, lvw_i, cvw_i, 
+							       &firstRowToCopy, &firstRowToCompute, &firstRowToAdd);
+			    
+					shiftCorrelationMatrixValues (omega, lvw_i, cvw_i, firstRowToCopy, alignment->correlationMatrix);
 					
+					computeCorrelationMatrixPairwise (alignment, omega, cvw_i, firstRowToCompute, functionData, NULL,NULL);					
+					
+					applyCorrelationMatrixAdditions (omega, cvw_i,firstRowToAdd,alignment->correlationMatrix);
+
+					// testtime0 = gettime();
+					computeOmegas_gpu(alignment, omega, cvw_i, functionData,NULL);
+					// testtime1 = gettime();
+					// testtime += testtime1 - testtime0;
+					// printf("%f\n",testtime);
 					lvw_i = cvw_i;
 				}
 
@@ -1734,16 +1756,16 @@ int main(int argc, char** argv)
 			    computeOmegas (alignment, omega, cvw_i, functionData,NULL);
 			    testtime1 = gettime();
 				testtime += testtime1 - testtime0;
-				printf("%f\n",testtime);
+				// printf("%f\n",testtime);
 			    lvw_i = cvw_i;
 			  }
 			
 			appendOmegaResultToFile (alignment, omega, i, i+1, fpReport, resultType);
-		      }			
+		      }
 #endif		    
 #endif
 #endif
-
+		// printf("%f\n",testtime);
 	    }
 	  else
 	    {

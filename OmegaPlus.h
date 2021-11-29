@@ -384,21 +384,23 @@ unsigned int cs_c;
 float * correlate_gpu(uint32_t * tableA, unsigned int * tableA_bitcount, int tableAsize, int compressed_snp_size, int snp_size);
 
 /*   ---  OMEGA OPENCL  ---   */
-#define OMEGA_NAME "omega3"
-// #define OMEGA_NAME "omega2"
-#define OMEGA_NAME2 "omega1"
+// #define OMEGA_NAME2 "omega3"
+#define OMEGA_NAME2 "omega2"
+#define OMEGA_NAME1 "omega1"
 
 cl_mem omega_buffer;
 cl_mem TS_buffer;
 cl_mem LR_buffer;
 cl_mem km_buffer;
 cl_mem index_buffer;
-cl_kernel omega_kernel;
 cl_kernel omega_kernel2;
+cl_kernel omega_kernel1;
 
 cl_uint comp_units;
+size_t group_size;
+size_t wi_ind;
 cl_uint steps_thresh;
-size_t max_group_size, pref_group_size, work_items;
+size_t max_group_size, pref_group_size;
 cl_long max_omegas, max_LRkm, max_TS;
 
 void computeOmegas_gpu (alignment_struct * alignment, omega_struct * omega, int omegaIndex, void * threadData, cor_t ** correlationMatrix);
