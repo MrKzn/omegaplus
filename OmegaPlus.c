@@ -1722,10 +1722,10 @@ int main(int argc, char** argv)
 					
 					applyCorrelationMatrixAdditions (omega, cvw_i,firstRowToAdd,alignment->correlationMatrix);
 
-					// testtime0 = gettime();
+					testtime0 = gettime();
 					computeOmegas_gpu(alignment, omega, cvw_i, functionData,NULL);
-					// testtime1 = gettime();
-					// testtime += testtime1 - testtime0;
+					testtime1 = gettime();
+					testtime += testtime1 - testtime0;
 					// printf("%f\n",testtime);
 					lvw_i = cvw_i;
 				}
@@ -1765,7 +1765,7 @@ int main(int argc, char** argv)
 #endif		    
 #endif
 #endif
-		// printf("%f\n",testtime);
+		printf("%f\n",testtime);
 	    }
 	  else
 	    {
