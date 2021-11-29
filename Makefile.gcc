@@ -3,7 +3,7 @@
 
 CC = gcc
 
-CFLAGS = -O3 -Wall -D_SHARED #-D_UNROLL
+CFLAGS = -O3 -Wall -D_SHARED #-D_UNROLL -pg
 
 LIBRARIES = -lm -lOpenCL
 
