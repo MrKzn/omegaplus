@@ -1485,7 +1485,7 @@ void gpu_init(void)
     /* Move this to a header file in the final code, as well as other important parameters */
 	group_size = 128; 	// Seems very optimal on multiple architectures
 	int w_CU = 24;		// wavefronts/warps per compute unit
-	wi_ind = pref_group_size * w_CU * (comp_units);		//K80 has 13x2 CUs so w_size*32*2=32 w/CU
+	wi_ind = pref_group_size * w_CU * (2*comp_units);		//K80 has 13x2 CUs so w_size*32*2=32 w/CU
 	
     printf("Compute units: %u\n", comp_units);
     printf("Set work-group size: %lu, Set work-items: %lu\n", group_size, wi_ind);
