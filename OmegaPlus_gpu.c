@@ -217,8 +217,8 @@ void computeOmegaValues_gpu (omega_struct * omega, int omegaIndex, cor_t ** corr
 	R_SNP = rightMaxIndex - rightMinIndex + 1;
 	tot_step = L_SNP * R_SNP;
 
-	// if(tot_step < steps_thresh)	// Threshold
-    if(0)	// Threshold
+	if(tot_step < steps_thresh)	// Threshold
+    // if(1)	// Threshold
 	{
 		/* Maybe try padding only the number of inner loop iterations to a mulitple of a smaller work-group size, e.g. 128
         and pad the number of outer loop iterations to the minimal number needed (see omega22 colab). This would result in 
@@ -498,7 +498,7 @@ void computeOmegaValues_gpu (omega_struct * omega, int omegaIndex, cor_t ** corr
     }
     // mtimetot += mtime1 - mtime0;
     // if(omegaIndex > 995)
-        // printf("%f\n",mtimetot);
+    //     printf("%f\n",mtimetot);
 	
 	omega[omegaIndex].maxValue = maxW;
 	omega[omegaIndex].maxLeftIndex  = maxLeftIndex;
@@ -1090,7 +1090,7 @@ void compressAlignment_gpu(alignment_struct *alignment, unsigned int * BCtable)
 }
 
 /*   ---  GPU Correlation functions  ---   */
-void computeCorrelationsBIN_gpu(alignment_struct * alignment, omega_struct * omega, int omegaIndex, float * qLD_res)
+void computeCorrelationsBIN_gpu(alignment_struct * alignment, omega_struct * omega, int omegaIndex, int firstRow, float * qLD_res)
 {
 	assert(omega[omegaIndex].rightIndex>=omega[omegaIndex].leftIndex);
 	
@@ -1101,7 +1101,7 @@ void computeCorrelationsBIN_gpu(alignment_struct * alignment, omega_struct * ome
 
 	int LinesToComputeTotal = omega[omegaIndex].rightIndex - omega[omegaIndex].leftIndex;
 
-	for(i=1;i<=LinesToComputeTotal;i++)
+	for(i=firstRow;i<=LinesToComputeTotal;i++)
 	{
 		for(j=i-1;j>=0;j--)
 		{
@@ -1113,7 +1113,7 @@ void computeCorrelationsBIN_gpu(alignment_struct * alignment, omega_struct * ome
 	}	
 }
 
-void computeCorrelationsBINGAPS_gpu(alignment_struct * alignment, omega_struct * omega, int omegaIndex, float * qLD_res)
+void computeCorrelationsBINGAPS_gpu(alignment_struct * alignment, omega_struct * omega, int omegaIndex, int firstRow, float * qLD_res)
 {
 	assert(omega[omegaIndex].rightIndex>=omega[omegaIndex].leftIndex);
 	
@@ -1124,7 +1124,7 @@ void computeCorrelationsBINGAPS_gpu(alignment_struct * alignment, omega_struct *
 
 	int LinesToComputeTotal = omega[omegaIndex].rightIndex - omega[omegaIndex].leftIndex;
 
-	for(i=1;i<=LinesToComputeTotal;i++)
+	for(i=firstRow;i<=LinesToComputeTotal;i++)
 	{
 		for(j=i-1;j>=0;j--)
 		{
@@ -1136,14 +1136,17 @@ void computeCorrelationsBINGAPS_gpu(alignment_struct * alignment, omega_struct *
 	}
 }
 
-void computeCorrelationMatrixPairwise_gpu(alignment_struct * alignment, omega_struct * omega, int omegaIndex, void * threadData, cor_t ** myCorrelationMatrix, char * lookuptable, float * qLD_res)
+void computeCorrelationMatrixPairwise_gpu(alignment_struct * alignment, omega_struct * omega, int omegaIndex, int firstRowIndex, void * threadData, cor_t ** myCorrelationMatrix, char * lookuptable, float * qLD_res)
 {
+
+    if (firstRowIndex==-1)
+		return;
 
 	switch(alignment->states)
 	{
-		case 2: computeCorrelationsBIN_gpu(alignment,omega,omegaIndex, qLD_res); 
+		case 2: computeCorrelationsBIN_gpu(alignment,omega,omegaIndex, firstRowIndex, qLD_res); 
 			break;
-		case 3: computeCorrelationsBINGAPS_gpu(alignment,omega,omegaIndex, qLD_res); 
+		case 3: computeCorrelationsBINGAPS_gpu(alignment,omega,omegaIndex, firstRowIndex, qLD_res); 
 			break;
 		case 4: printf("GPU LD calculation only works with binary data\n"); //computeCorrelationsDNA(alignment, omega, omegaIndex, firstRowIndex); 
 			break;
@@ -1420,16 +1423,17 @@ void gpu_init(void)
     free(name);
     free(vendor);
 
-    int gpu = 0, result;
-    if(num_devices > 1)
-    {
-        do{
-            printf("Which GPU do you want to use (enter # and press enter): ");
-            result = scanf("%d", &gpu);
-            if(result == 0)
-                while (fgetc(stdin) != '\n'); // Read until a newline is found
-        } while (result == EOF || result == 0 || gpu >= num_devices);
-    }
+    // int gpu = 0, result;
+    // if(num_devices > 1)
+    // {
+    //     do{
+    //         printf("Which GPU do you want to use (enter # and press enter): ");
+    //         result = scanf("%d", &gpu);
+    //         if(result == 0)
+    //             while (fgetc(stdin) != '\n'); // Read until a newline is found
+    //     } while (result == EOF || result == 0 || gpu >= num_devices);
+    // }
+    int gpu = num_devices-1;
 
     context=clCreateContext(NULL, 1, &devices[gpu], NULL, NULL, &err);
     printCLErr(err,__LINE__,__FILE__);

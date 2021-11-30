@@ -343,7 +343,7 @@ double gettime(void);
 void compressAlignment_gpu(alignment_struct *alignment, unsigned int * BCtable);
 
 /*   ---  GPU Correlation functions  ---   */
-void computeCorrelationMatrixPairwise_gpu(alignment_struct * alignment, omega_struct * omega, int omegaIndex, void * threadData, cor_t ** myCorrelationMatrix, char * lookuptable, float * qLD_res);
+void computeCorrelationMatrixPairwise_gpu(alignment_struct * alignment, omega_struct * omega, int omegaIndex, int firstRowIndex, void * threadData, cor_t ** myCorrelationMatrix, char * lookuptable, float * qLD_res);
 void applyCorrelationMatrixAdditions_gpu (omega_struct * omega, int omegaIndex, cor_t ** correlationMatrix);
 
 /*   ---  GENERAL OPENCL  ---   */
