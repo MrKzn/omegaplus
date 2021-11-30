@@ -3933,7 +3933,7 @@ void computeOmegaValues_gpu19 (omega_struct * omega, int omegaIndex, cor_t ** co
 
 void computeOmega_gpu1(float * omegas, unsigned int * indexes, float * LR, int * km, float * TSs, int tot_SNP_pad, 
 						int wi_load, int in_cnt_pad, unsigned int tot_step_pad, int wi_func, size_t global){
-	// static cl_ulong p_start, p_end, p_total=0;
+	static cl_ulong p_start, p_end, p_total=0;
 	// static double ttime0, ttime1, ttot = 0;
 
 	int err=0;
@@ -3978,29 +3978,29 @@ void computeOmega_gpu1(float * omegas, unsigned int * indexes, float * LR, int *
 			);
 	printCLErr(err,__LINE__,__FILE__);
 
-	// clWaitForEvents(1, &events[1]);
+	clWaitForEvents(1, &events[1]);
 
-	// // ttime1 = gettime();
-	// // ttot += ttime1 - ttime0;
-	// // printf("%f\n",ttot);
+	// ttime1 = gettime();
+	// ttot += ttime1 - ttime0;
+	// printf("%f\n",ttot);
 
-    // err=clGetEventProfilingInfo(events[1], CL_PROFILING_COMMAND_START, sizeof(cl_ulong),
-    //                         &p_start, NULL);
-	// printCLErr(err,__LINE__,__FILE__);
-    // err=clGetEventProfilingInfo(events[1], CL_PROFILING_COMMAND_END, sizeof(cl_ulong),
-    //                         &p_end, NULL);
-	// printCLErr(err,__LINE__,__FILE__);
+    err=clGetEventProfilingInfo(events[1], CL_PROFILING_COMMAND_START, sizeof(cl_ulong),
+                            &p_start, NULL);
+	printCLErr(err,__LINE__,__FILE__);
+    err=clGetEventProfilingInfo(events[1], CL_PROFILING_COMMAND_END, sizeof(cl_ulong),
+                            &p_end, NULL);
+	printCLErr(err,__LINE__,__FILE__);
 
-	// p_total += p_end - p_start;
+	p_total += p_end - p_start;
 
-	// printf("%lu\n",p_total);
+	printf("%lu\n",p_total);
 
 	//read back omega values in omega buffer
 	err=clEnqueueReadBuffer(
 			io_queue, omega_buffer, CL_FALSE, 0,
 			wi_func*sizeof(float), omegas,
-			// 0, NULL, NULL
-			1, &events[1], NULL
+			0, NULL, NULL
+			// 1, &events[1], NULL
 			);
 	printCLErr(err,__LINE__,__FILE__);
 
@@ -4018,7 +4018,7 @@ void computeOmega_gpu1(float * omegas, unsigned int * indexes, float * LR, int *
 
 void computeOmegaValues_gpu22 (omega_struct * omega, int omegaIndex, cor_t ** correlationMatrix, void * threadData)
 {
-	static double mtime0, mtime1, mtimetot = .0;
+	// static double mtime0, mtime1, mtimetot = .0;
 	float tmpW, maxW=0.0f;
 	static float * omegas = NULL, * LR = NULL, * TS = NULL, * TS_local;
 
@@ -4130,9 +4130,9 @@ void computeOmegaValues_gpu22 (omega_struct * omega, int omegaIndex, cor_t ** co
 			TS[i] = 100000000000.0f;
 		}
 		// mtime1 = gettime();
-		mtime0 = gettime();
+		// mtime0 = gettime();
 		computeOmega_gpu1(omegas, indexes, LR, km, TS, tot_SNP_pad, wi_load, R_SNP_pad, tot_step_pad, wi_func, set_wi);
-		mtime1 = gettime();
+		// mtime1 = gettime();
 
 		for(i=0;i<wi_func;i++)
 		{
@@ -4240,9 +4240,9 @@ void computeOmegaValues_gpu22 (omega_struct * omega, int omegaIndex, cor_t ** co
 			TS[i] = 100000000000.0f;
 		}
 		// mtime1 = gettime();
-		mtime0 = gettime();
+		// mtime0 = gettime();
 		computeOmega_gpu1(omegas, indexes, LR, km, TS, tot_SNP_pad, wi_load, L_SNP_pad, tot_step_pad, wi_func, set_wi);
-		mtime1 = gettime();
+		// mtime1 = gettime();
 
 		for(i=0;i<wi_func;i++)
 		{
@@ -4263,9 +4263,9 @@ void computeOmegaValues_gpu22 (omega_struct * omega, int omegaIndex, cor_t ** co
 		maxRightIndex = (rightMinIndex + (indexes[index]/L_SNP_pad)) + omega[omegaIndex].leftIndex;
 	}
 
-	mtimetot += mtime1 - mtime0;
-	if(omegaIndex > 994)
-		printf("a %f\n",mtimetot);
+	// mtimetot += mtime1 - mtime0;
+	// if(omegaIndex > 994)
+	// 	printf("a %f\n",mtimetot);
 	
 	omega[omegaIndex].maxValue = maxW;
 	omega[omegaIndex].maxLeftIndex  = maxLeftIndex;
