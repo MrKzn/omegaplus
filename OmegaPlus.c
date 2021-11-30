@@ -1709,13 +1709,13 @@ int main(int argc, char** argv)
 					// max_inner = (omega[cvw_i].rightIndex - omega[cvw_i].leftIndex) - (omega[cvw_i].rightminIndex - omega[cvw_i].leftIndex) + 1;
 					// printf("Total2: %lu\n",max_outer*max_inner);
 
-					// time2 = gettime();
+					time2 = gettime();
 					// for(j=0;j<iter;j++){
 						computeOmegas_gpu(alignment, omega, cvw_i, functionData,NULL);
 						// computeOmegas (alignment, omega, cvw_i, functionData,NULL);
 					// }
-					// time3 = gettime();
-					// time4 += time3 - time2;
+					time3 = gettime();
+					time4 += time3 - time2;
 
 					// int outer_cnt = omega[cvw_i].leftminIndex - omega[cvw_i].leftIndex - omega[cvw_i].leftIndex - omega[cvw_i].leftIndex + 1;
 					// int inner_cnt = omega[cvw_i].rightIndex - omega[cvw_i].leftIndex - omega[cvw_i].rightminIndex - omega[cvw_i].leftIndex + 1;
@@ -1739,7 +1739,7 @@ int main(int argc, char** argv)
 				// break;
 				appendOmegaResultToFile (alignment, omega, i, i+1, fpReport, resultType);
 		    }
-			// printf("Comp: %f\n",time4);
+			printf("Comp: %f\n",time4);
 			
 			// For writing an array of "omegaIndex" to write larger chunks of data to GPU
 			// time2 = gettime();
