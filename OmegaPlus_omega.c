@@ -4603,7 +4603,7 @@ void computeOmegas (alignment_struct * alignment, omega_struct * omega, int omeg
 
 void computeOmegas_gpu (alignment_struct * alignment, omega_struct * omega, int omegaIndex, void * threadData, cor_t ** correlationMatrix)
 {
-	computeOmegaValues_gpu3 (omega, omegaIndex, alignment->correlationMatrix, NULL);
+	computeOmegaValues_gpu22 (omega, omegaIndex, alignment->correlationMatrix, NULL);
 }
 #endif
 
