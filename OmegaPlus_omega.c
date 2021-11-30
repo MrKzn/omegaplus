@@ -4265,7 +4265,7 @@ void computeOmegaValues_gpu22 (omega_struct * omega, int omegaIndex, cor_t ** co
 
 	// mtimetot += mtime1 - mtime0;
 	// if(omegaIndex > 995)
-	// 	printf("%f\n",mtimetot);
+	// 	printf("a %f\n",mtimetot);
 	
 	omega[omegaIndex].maxValue = maxW;
 	omega[omegaIndex].maxLeftIndex  = maxLeftIndex;
