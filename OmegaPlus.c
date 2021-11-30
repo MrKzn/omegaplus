@@ -1739,7 +1739,7 @@ int main(int argc, char** argv)
 				// break;
 				appendOmegaResultToFile (alignment, omega, i, i+1, fpReport, resultType);
 		    }
-			printf("%f\n",time4);
+			printf("Comp: %f\n",time4);
 			
 			// For writing an array of "omegaIndex" to write larger chunks of data to GPU
 			// time2 = gettime();
