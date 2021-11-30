@@ -4018,7 +4018,7 @@ void computeOmega_gpu1(float * omegas, unsigned int * indexes, float * LR, int *
 
 void computeOmegaValues_gpu22 (omega_struct * omega, int omegaIndex, cor_t ** correlationMatrix, void * threadData)
 {
-	// static double mtime0, mtime1, mtimetot = .0;
+	static double mtime0, mtime1, mtimetot = .0;
 	float tmpW, maxW=0.0f;
 	static float * omegas = NULL, * LR = NULL, * TS = NULL, * TS_local;
 
@@ -4130,9 +4130,9 @@ void computeOmegaValues_gpu22 (omega_struct * omega, int omegaIndex, cor_t ** co
 			TS[i] = 100000000000.0f;
 		}
 		// mtime1 = gettime();
-		// mtime0 = gettime();
+		mtime0 = gettime();
 		computeOmega_gpu1(omegas, indexes, LR, km, TS, tot_SNP_pad, wi_load, R_SNP_pad, tot_step_pad, wi_func, set_wi);
-		// mtime1 = gettime();
+		mtime1 = gettime();
 
 		for(i=0;i<wi_func;i++)
 		{
@@ -4240,9 +4240,9 @@ void computeOmegaValues_gpu22 (omega_struct * omega, int omegaIndex, cor_t ** co
 			TS[i] = 100000000000.0f;
 		}
 		// mtime1 = gettime();
-		// mtime0 = gettime();
+		mtime0 = gettime();
 		computeOmega_gpu1(omegas, indexes, LR, km, TS, tot_SNP_pad, wi_load, L_SNP_pad, tot_step_pad, wi_func, set_wi);
-		// mtime1 = gettime();
+		mtime1 = gettime();
 
 		for(i=0;i<wi_func;i++)
 		{
@@ -4263,9 +4263,9 @@ void computeOmegaValues_gpu22 (omega_struct * omega, int omegaIndex, cor_t ** co
 		maxRightIndex = (rightMinIndex + (indexes[index]/L_SNP_pad)) + omega[omegaIndex].leftIndex;
 	}
 
-	// mtimetot += mtime1 - mtime0;
-	// if(omegaIndex > 995)
-	// 	printf("a %f\n",mtimetot);
+	mtimetot += mtime1 - mtime0;
+	if(omegaIndex > 994)
+		printf("a %f\n",mtimetot);
 	
 	omega[omegaIndex].maxValue = maxW;
 	omega[omegaIndex].maxLeftIndex  = maxLeftIndex;
