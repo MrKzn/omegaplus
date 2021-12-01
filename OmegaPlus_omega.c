@@ -411,10 +411,9 @@ void computeOmegaValues (omega_struct * omega, int omegaIndex, cor_t ** correlat
 				msel2 = (m * (m-1)) / 2;
 					
 				TS = correlationMatrix[j][i];
-				// ttime0 = gettime();
+
 				tmpW = computeOmega(LS, RS, TS, k, ksel2, m, msel2);
-				// ttime1 = gettime();
-				// ttime += ttime1 - ttime0;
+
 				if(tmpW>maxW)
 				{
 					maxW = tmpW;
@@ -447,7 +446,6 @@ void computeOmegaValues (omega_struct * omega, int omegaIndex, cor_t ** correlat
 	omega[omegaIndex].maxLeftIndex  = maxLeftIndex;
 	omega[omegaIndex].maxRightIndex = maxRightIndex;
 #endif
-	// printf("%f\n",ttime);
 }
 
 #ifdef _USE_PTHREADS
