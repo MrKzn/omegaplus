@@ -884,7 +884,7 @@ void computeOmega_gpu3(float * omegas, float * LR, int * km, float * TS, int tot
 
 void computeOmegaValues_gpu3 (omega_struct * omega, int omegaIndex, cor_t ** correlationMatrix, void * threadData)
 {
-	// static double mtime0, mtime1, mtimetot = .0;
+	static double mtime0, mtime1, mtimetot = .0;
 	float tmpW, maxW=0.0f;
 	static float * omegas = NULL, * LR = NULL, * TS = NULL, * TS_local;
 
@@ -953,9 +953,9 @@ void computeOmegaValues_gpu3 (omega_struct * omega, int omegaIndex, cor_t ** cor
 		}
 		// mtime1 = gettime();
 
-		// mtime0 = gettime();
+		mtime0 = gettime();
 		computeOmega_gpu3(omegas, LR, km, TS, tot_SNP, R_SNP, tot_step);
-		// mtime1 = gettime();
+		mtime1 = gettime();
 
 		for(i=0;i<tot_step;i++)
 		{
@@ -1000,9 +1000,9 @@ void computeOmegaValues_gpu3 (omega_struct * omega, int omegaIndex, cor_t ** cor
 		}
 		// mtime1 = gettime();
 
-		// mtime0 = gettime();
+		mtime0 = gettime();
 		computeOmega_gpu3(omegas, LR, km, TS, tot_SNP, L_SNP, tot_step);
-		// mtime1 = gettime();
+		mtime1 = gettime();
 
 		for(i=0;i<tot_step;i++)
 		{
@@ -1017,9 +1017,9 @@ void computeOmegaValues_gpu3 (omega_struct * omega, int omegaIndex, cor_t ** cor
 		maxLeftIndex = (leftMinIndex - (index%L_SNP)) + omega[omegaIndex].leftIndex;
 		maxRightIndex = (rightMinIndex + (index/L_SNP)) + omega[omegaIndex].leftIndex;
 	}
-	// mtimetot += mtime1 - mtime0;
-	// if(omegaIndex > 994)
-	// 	printf("a %f\n",mtimetot);
+	mtimetot += mtime1 - mtime0;
+	if(omegaIndex > 994)
+		printf("a %f\n",mtimetot);
 	
 	omega[omegaIndex].maxValue = maxW;
 	omega[omegaIndex].maxLeftIndex  = maxLeftIndex;
