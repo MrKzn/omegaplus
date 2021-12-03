@@ -661,7 +661,7 @@ __kernel void omega1 (
 }
 
 __kernel void omega2 (
-    __global float *omega, __global unsigned int *index, __global float *LR,
+    __global float *omega, __global unsigned int *indexes, __global float *LR,
     __global float *TS,__global int *km, int in_cnt, int wi_load
 ) {
   const unsigned int G_i = get_global_id(0);
@@ -697,7 +697,7 @@ __kernel void omega2 (
   }
 
   omega[G_i] = maxW;
-  index[G_i] = maxI;
+  indexes[G_i] = maxI;
 }
 
 // __kernel void omega3 (
