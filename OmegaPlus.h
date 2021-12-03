@@ -36,6 +36,7 @@
 #include <sys/time.h>
 #include <limits.h>
 #include <ctype.h>
+#include <float.h>
 // qLD ADDED
 #include <stdint.h>
 #include "gpu_kernel/kernels.h"
