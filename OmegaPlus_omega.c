@@ -203,7 +203,6 @@ float computeOmega (float LS, float RS, float TS, int k, int ksel2, int m, int m
 
 void computeOmegaValues (omega_struct * omega, int omegaIndex, cor_t ** correlationMatrix, void * threadData)
 {
-	// static double ttime0, ttime1, ttime = .0;
 	float LS, RS, TS, tmpW = 0.0, maxW=0.0;
 
 	int i, j, ksel2, msel2, k, m, maxLeftIndex=0, maxRightIndex=0,

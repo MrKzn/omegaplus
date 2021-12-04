@@ -872,7 +872,7 @@ int main(int argc, char** argv)
 	int maxomegamaxLeftIndex = -1;
 	int maxomegamaxRightIndex = -1;
 
-	double time0, time1, totalTimeL=.0, totalTimeG0 = gettime(), totalTimeG1, testtime0, testtime1, testtime=.0;
+	double time0, time1, totalTimeL=.0, totalTimeG0 = gettime(), totalTimeG1, testtime0, testtime1, testtime=.0, testtime2, testtime3, testtime4=.0;
 
   	char** recfile = malloc(sizeof(char*));
   	      *recfile = NULL;
@@ -1749,6 +1749,7 @@ int main(int argc, char** argv)
 			
 			if(validGridP(cvw_i,grid))
 			  {		
+				  testtime2 = gettime();
 			    overlapCorrelationMatrixAdditions (alignment, omega, lvw_i, cvw_i, 
 							       &firstRowToCopy, &firstRowToCompute, &firstRowToAdd);
 			    
@@ -1757,11 +1758,12 @@ int main(int argc, char** argv)
 			    computeCorrelationMatrixPairwise (alignment, omega, cvw_i, firstRowToCompute, functionData, NULL,NULL);					
 			    
 			    applyCorrelationMatrixAdditions (omega, cvw_i,firstRowToAdd,alignment->correlationMatrix);
+			    testtime3 = gettime();
+				testtime4 += testtime3 - testtime2;
 			    testtime0 = gettime();
 			    computeOmegas (alignment, omega, cvw_i, functionData,NULL);
 			    testtime1 = gettime();
 				testtime += testtime1 - testtime0;
-				// printf("%f\n",testtime);
 			    lvw_i = cvw_i;
 			  }
 			
@@ -1770,7 +1772,8 @@ int main(int argc, char** argv)
 #endif		    
 #endif
 #endif
-		printf("Comp: %f\n",testtime);
+		printf("LD: %f\n",testtime4);
+		printf("Omega: %f\n",testtime);
 	    }
 	  else
 	    {
