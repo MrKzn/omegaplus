@@ -1687,11 +1687,11 @@ int main(int argc, char** argv)
 
 // GPU
 #ifdef _USE_GPU
-			// testtime0 = gettime();
+			testtime2 = gettime();
 			qLD_res = correlate_gpu(alignment->compressedArrays[0], BCtable, alignment->segsites, alignment->siteSize, alignment->sequences);
-			// testtime1 = gettime();
-			// testtime += testtime1 - testtime0;
-			// printf("qLD: %f\n",testtime);
+			testtime3 = gettime();
+			testtime4 += testtime3 - testtime2;
+			printf("qLD: %f\n",testtime4);
 
 		    alignment->correlationMatrix = createCorrelationMatrix(alignment->correlationMatrix,matrixSizeMax);
 		    
@@ -1702,7 +1702,7 @@ int main(int argc, char** argv)
 
 				if(validGridP(cvw_i,grid))
 				{
-					// testtime0 = gettime();
+					testtime2 = gettime();
 					// GPU
 					overlapCorrelationMatrixAdditions (alignment, omega, lvw_i, cvw_i, 
 							       &firstRowToCopy, &firstRowToCompute, &firstRowToAdd);
@@ -1724,14 +1724,13 @@ int main(int argc, char** argv)
 					
 					// applyCorrelationMatrixAdditions (omega, cvw_i,firstRowToAdd,alignment->correlationMatrix);
 					
-					// testtime1 = gettime();
-					// testtime += testtime1 - testtime0;
+					testtime3 = gettime();
+					testtime4 += testtime3 - testtime2;
 
 					testtime0 = gettime();
 					computeOmegas_gpu(alignment, omega, cvw_i, functionData,NULL);
 					testtime1 = gettime();
 					testtime += testtime1 - testtime0;
-					// printf("%f\n",testtime);
 					lvw_i = cvw_i;
 				}
 
