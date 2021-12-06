@@ -1453,7 +1453,7 @@ int main(int argc, char** argv)
 
 		if(!validGridP(cvw_i,grid) && genGridList[0]!=-1)
 		{				
-
+			testtime2 = gettime();
 			genGridList_size=i;
 
 			leftSNPindex = omega[genGridList[0]].leftIndex;
@@ -1556,9 +1556,10 @@ int main(int argc, char** argv)
 			}
 
 			dp_on_tiles_overlap_ptr (first_group_index, last_group_index, workgroup_map_ptr, overlap_workgroup_map_ptr, overlap, first_group_index, alignment,leftSNPindex, rightSNPindex);
+			testtime3 = gettime();
+			testtime4 += testtime3 - testtime2;
 
-
-
+			testtime0 = gettime();
 			int * threadload = calloc(threads, sizeof(int));
 			int * threadloadloc = calloc(threads, sizeof(int));
 			int ** threadgrid = malloc(threads*sizeof(int*));
@@ -1658,7 +1659,8 @@ int main(int argc, char** argv)
 				workgroup_map_ptr_mem=NULL;
 			}				
 			i=0;
-
+			testtime1 = gettime();
+			testtime += testtime1 - testtime0;
 
 		}
 		
