@@ -46,7 +46,7 @@ inline cl_ulong minlu(cl_ulong a, cl_ulong b)
 
 /*   ---  GPU Omega functions  ---   */
 void computeOmega_gpu1(float * omegas, float * LR, int * km, float * TS, int tot_SNP, int in_cnt, unsigned int tot_step){
-	static cl_ulong p_start, p_end, p_total=0;
+	// static cl_ulong p_start, p_end, p_total=0;
 	int err=0;
 
 	// //set kernel arguments
@@ -88,25 +88,25 @@ void computeOmega_gpu1(float * omegas, float * LR, int * km, float * TS, int tot
 			);
 	printCLErr(err,__LINE__,__FILE__);
 
-	clWaitForEvents(1, &events[1]);
+	// clWaitForEvents(1, &events[1]);
 
-    err=clGetEventProfilingInfo(events[1], CL_PROFILING_COMMAND_START, sizeof(cl_ulong),
-                            &p_start, NULL);
-	printCLErr(err,__LINE__,__FILE__);
-    err=clGetEventProfilingInfo(events[1], CL_PROFILING_COMMAND_END, sizeof(cl_ulong),
-                            &p_end, NULL);
-	printCLErr(err,__LINE__,__FILE__);
+    // err=clGetEventProfilingInfo(events[1], CL_PROFILING_COMMAND_START, sizeof(cl_ulong),
+    //                         &p_start, NULL);
+	// printCLErr(err,__LINE__,__FILE__);
+    // err=clGetEventProfilingInfo(events[1], CL_PROFILING_COMMAND_END, sizeof(cl_ulong),
+    //                         &p_end, NULL);
+	// printCLErr(err,__LINE__,__FILE__);
 
-	p_total += p_end - p_start;
+	// p_total += p_end - p_start;
 
-	printf("1: %lu\n",p_total);
+	// printf("1: %lu\n",p_total);
 
 	//read back omega values in omega buffer
 	err=clEnqueueReadBuffer(
 			io_queue, omega_buffer, CL_FALSE, 0,
 			tot_step*sizeof(float), omegas,
-			// 1, &events[1], &events[2]
-            0, NULL, &events[2]
+			1, &events[1], &events[2]
+            // 0, NULL, &events[2]
 			);
 	printCLErr(err,__LINE__,__FILE__);
 
@@ -115,7 +115,7 @@ void computeOmega_gpu1(float * omegas, float * LR, int * km, float * TS, int tot
 
 void computeOmega_gpu2(float * omegas, unsigned int * indexes, float * LR, int * km, float * TSs, int tot_SNP_pad, 
 						int wi_load, int in_cnt_pad, unsigned int tot_step_pad, int wi_func, size_t global){
-	static cl_ulong p_start, p_end, p_total=0;
+	// static cl_ulong p_start, p_end, p_total=0;
 
 	int err=0;
 	const size_t local = group_size;
@@ -157,25 +157,25 @@ void computeOmega_gpu2(float * omegas, unsigned int * indexes, float * LR, int *
 			);
 	printCLErr(err,__LINE__,__FILE__);
 
-	clWaitForEvents(1, &events[1]);
+	// clWaitForEvents(1, &events[1]);
 
-    err=clGetEventProfilingInfo(events[1], CL_PROFILING_COMMAND_START, sizeof(cl_ulong),
-                            &p_start, NULL);
-	printCLErr(err,__LINE__,__FILE__);
-    err=clGetEventProfilingInfo(events[1], CL_PROFILING_COMMAND_END, sizeof(cl_ulong),
-                            &p_end, NULL);
-	printCLErr(err,__LINE__,__FILE__);
+    // err=clGetEventProfilingInfo(events[1], CL_PROFILING_COMMAND_START, sizeof(cl_ulong),
+    //                         &p_start, NULL);
+	// printCLErr(err,__LINE__,__FILE__);
+    // err=clGetEventProfilingInfo(events[1], CL_PROFILING_COMMAND_END, sizeof(cl_ulong),
+    //                         &p_end, NULL);
+	// printCLErr(err,__LINE__,__FILE__);
 
-	p_total += p_end - p_start;
+	// p_total += p_end - p_start;
 
-	printf("2: %lu\n",p_total);
+	// printf("2: %lu\n",p_total);
 
 	//read back omega values in omega buffer
 	err=clEnqueueReadBuffer(
 			io_queue, omega_buffer, CL_FALSE, 0,
 			wi_func*sizeof(float), omegas,
-			0, NULL, NULL
-			// 1, &events[1], NULL
+			// 0, NULL, NULL
+			1, &events[1], NULL
 			);
 	printCLErr(err,__LINE__,__FILE__);
 
