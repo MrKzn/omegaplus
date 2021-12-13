@@ -1713,7 +1713,6 @@ int main(int argc, char** argv)
 
 					// computeCorrelationMatrixPairwise_gpu (alignment, omega, cvw_i, firstRowToCompute, functionData, NULL,NULL, qLD_res);
 
-					// // applyCorrelationMatrixAdditions_gpu (omega, cvw_i,alignment->correlationMatrix);
 					// applyCorrelationMatrixAdditions (omega, cvw_i,firstRowToAdd,alignment->correlationMatrix);
 
 					// CPU

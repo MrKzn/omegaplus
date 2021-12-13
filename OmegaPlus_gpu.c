@@ -1163,24 +1163,6 @@ void computeCorrelationMatrixPairwise_gpu(alignment_struct * alignment, omega_st
 	}	
 }
 
-void applyCorrelationMatrixAdditions_gpu (omega_struct * omega, int omegaIndex, cor_t ** correlationMatrix)
-{
-	int i,j;
-	
-	int LinesToUpdateTotal = omega[omegaIndex].rightIndex - omega[omegaIndex].leftIndex; 
-
-	for(i=2;i<=LinesToUpdateTotal;i++)
-	{
-		for(j=i-2;j>=0;j--)
-		{
-			correlationMatrix[i][j] =   correlationMatrix[i][j]  
-						  + correlationMatrix[i-1][j]  
-						  + correlationMatrix[i][j+1]  
-						  - correlationMatrix[i-1][j+1];
-		}
-	}
-}
-
 /*   ---  GPU general functions  ---   */
 static void create_program_with_source(cl_program *program,
                                        cl_context *context,
