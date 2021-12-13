@@ -18,7 +18,7 @@ Linux Platforms
 ---------------
 
 Compile:
-	make -f Makefile.gcc|Makefile.PTHREADS.FINE.gcc|Makefile.PTHREADS.COARSE.gcc
+	make -f Makefile.gcc|Makefile.PTHREADS.FINE.gcc|Makefile.PTHREADS.COARSE.gcc|Makefile.OPENMP.GENERIC.gcc|Makefile.GPU.gcc
 
 Execute the sequential version:
 	./OmegaPlus -name TEST -input TEST.fasta -minwin 100 -maxwin 1000 -grid 10000
@@ -31,6 +31,12 @@ or the coarse-grained parallel version:
 
 or the multi-grained parallel version:
 	./OmegaPlus-M -name TEST -input TEST.fasta -minwin 100 -maxwin 1000 -grid 10000 -threads 4
+	
+or the generic parallel version:
+	./OmegaPlus-G -name TEST -input TEST.fasta -minwin 100 -maxwin 1000 -grid 10000 -threads 4 -memLimit 4000
+	
+or the GPU-accelerated version:
+	./OmegaPlus-GPU -name TEST -input TEST.fasta -minwin 100 -maxwin 1000 -grid 10000
 
 
 Windows Platforms
@@ -78,7 +84,9 @@ January 2013:	OmegaPlus v2.2.2
 
 January 2014:	OmegaPlus v2.2.5
 		-- Small input changes, it can now read the '.' state in the ALT field
-
+		
+December 2021:	OmegaPlus v3.0.0
+		-- LD and Omega GPU-acceleration
 
 
 Citations
