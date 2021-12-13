@@ -118,7 +118,7 @@ void computeOmega_gpu2(float * omegas, unsigned int * indexes, float * LR, int *
 	// static cl_ulong p_start, p_end, p_total=0;
 
 	int err=0;
-	const size_t local = group_size;
+    const size_t local = GPU_GROUP_SIZE;
 
 	// //set kernel arguments
 	err |= clSetKernelArg(omega_kernel2, 5, sizeof(cl_int), &in_cnt_pad);
@@ -339,7 +339,7 @@ void computeOmegaValues_gpu (omega_struct * omega, int omegaIndex, cor_t ** corr
 	{
         if(L_SNP < R_SNP)
         {
-            R_SNP_pad = (R_SNP + group_size - 1) & -group_size;
+            R_SNP_pad = (R_SNP + GPU_GROUP_SIZE - 1) & -GPU_GROUP_SIZE;
             set_wi = ((wi_ind + R_SNP_pad - 1) / R_SNP_pad) * R_SNP_pad;
             tot_step_pad = L_SNP * R_SNP_pad;
             wi_func = min(tot_step_pad, set_wi);		// not needed if dynamic kernel execution is used with step thresh
@@ -421,7 +421,7 @@ void computeOmegaValues_gpu (omega_struct * omega, int omegaIndex, cor_t ** corr
         }
         else
         {
-            L_SNP_pad = (L_SNP + group_size - 1) & -group_size;
+            L_SNP_pad = (L_SNP + GPU_GROUP_SIZE - 1) & -GPU_GROUP_SIZE;
             set_wi = ((wi_ind + L_SNP_pad - 1) / L_SNP_pad) * L_SNP_pad;
             tot_step_pad = R_SNP * L_SNP_pad;
             wi_func = min(tot_step_pad, set_wi);		// not needed if dynamic kernel execution is used with step thresh
@@ -1465,24 +1465,25 @@ void gpu_init(void)
 	printCLErr(err,__LINE__,__FILE__);
 
 	// Get workgroup size or preferred size
+    size_t pref_group_size;
 	err = clGetKernelWorkGroupInfo(omega_kernel1, devices[gpu],CL_KERNEL_WORK_GROUP_SIZE, sizeof(size_t), &max_group_size, NULL);
 	// printf("Max kernel work-group size: %lu\n",max_group_size);	// 256
 	err = clGetKernelWorkGroupInfo(omega_kernel2, devices[gpu],CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE, sizeof(size_t), &pref_group_size, NULL);
 	// printf("Work-group pref. multiple: %lu\n",pref_group_size);	// 64
 
 	// Get number of work groups / compute units
+    cl_uint comp_units;
+
 	err=clGetDeviceInfo(devices[gpu], CL_DEVICE_MAX_COMPUTE_UNITS, sizeof(cl_uint),
                         &comp_units, NULL);
     printCLErr(err,__LINE__,__FILE__);
 
     /* Move this to a header file in the final code, as well as other important parameters */
-	group_size = 128; 	// Seems very optimal on multiple architectures
-	int w_CU = 24;		// wavefronts/warps per compute unit
-	comp_units *= 2;    //K80 has 13x2 CUs so w_size*32*2=32 w/CU
-    wi_ind = pref_group_size * w_CU * (comp_units);
+	comp_units *= 2;    // DELETE THIS AT THE END     K80 has 13x2 CUs so w_size*32*2=32 w/CU
+    wi_ind = pref_group_size * WAVE_CU * (comp_units);
 	
     printf("Compute units: %u\n", comp_units);
-    printf("Set work-group size: %lu, Set work-items: %lu\n", group_size, wi_ind);
+    printf("Set work-items indication: %lu\n", wi_ind);
 
     steps_thresh = comp_units * pref_group_size * 32;
 
@@ -1538,7 +1539,7 @@ void gpu_init(void)
         exit(1);
     }
 
-    max_omegas = omega_buffer_size / sizeof(float);
+    max_omegas = omega_buffer_size / sizeof(float);     // DELETE THIS AT THE END?
     max_LRkm = LRkm_buffer_size / sizeof(float);
     max_TS = TS_buffer_size / sizeof(float);
 

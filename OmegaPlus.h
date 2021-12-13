@@ -396,12 +396,14 @@ cl_mem index_buffer;
 cl_kernel omega_kernel2;
 cl_kernel omega_kernel1;
 
-cl_uint comp_units;
-size_t group_size;
 size_t wi_ind;
 cl_uint steps_thresh;
-size_t max_group_size, pref_group_size;
+size_t max_group_size;
 cl_long max_omegas, max_LRkm, max_TS;
+
+// GPU setting
+#define GPU_GROUP_SIZE 128		// work-group size / local size for kernel II (omega2)
+#define WAVE_CU 24				// wavefronts/warps per compute unit			
 
 void computeOmegas_gpu (alignment_struct * alignment, omega_struct * omega, int omegaIndex, void * threadData, cor_t ** correlationMatrix);
 
