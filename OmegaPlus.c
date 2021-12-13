@@ -1453,7 +1453,7 @@ int main(int argc, char** argv)
 
 		if(!validGridP(cvw_i,grid) && genGridList[0]!=-1)
 		{				
-			testtime2 = gettime();
+			// testtime2 = gettime();
 			genGridList_size=i;
 
 			leftSNPindex = omega[genGridList[0]].leftIndex;
@@ -1556,10 +1556,10 @@ int main(int argc, char** argv)
 			}
 
 			dp_on_tiles_overlap_ptr (first_group_index, last_group_index, workgroup_map_ptr, overlap_workgroup_map_ptr, overlap, first_group_index, alignment,leftSNPindex, rightSNPindex);
-			testtime3 = gettime();
-			testtime4 += testtime3 - testtime2;
+			// testtime3 = gettime();
+			// testtime4 += testtime3 - testtime2;
 
-			testtime0 = gettime();
+			// testtime0 = gettime();
 			int * threadload = calloc(threads, sizeof(int));
 			int * threadloadloc = calloc(threads, sizeof(int));
 			int ** threadgrid = malloc(threads*sizeof(int*));
@@ -1659,8 +1659,8 @@ int main(int argc, char** argv)
 				workgroup_map_ptr_mem=NULL;
 			}				
 			i=0;
-			testtime1 = gettime();
-			testtime += testtime1 - testtime0;
+			// testtime1 = gettime();
+			// testtime += testtime1 - testtime0;
 
 		}
 		
@@ -1689,10 +1689,10 @@ int main(int argc, char** argv)
 
 // GPU
 #ifdef _USE_GPU
-			testtime2 = gettime();
-			qLD_res = correlate_gpu(alignment->compressedArrays[0], BCtable, alignment->segsites, alignment->siteSize, alignment->sequences);
-			testtime3 = gettime();
-			testtime4 += testtime3 - testtime2;
+			// testtime2 = gettime();
+			// qLD_res = correlate_gpu(alignment->compressedArrays[0], BCtable, alignment->segsites, alignment->siteSize, alignment->sequences);
+			// testtime3 = gettime();
+			// testtime4 += testtime3 - testtime2;
 			// printf("qLD: %f\n",testtime4);
 
 		    alignment->correlationMatrix = createCorrelationMatrix(alignment->correlationMatrix,matrixSizeMax);
@@ -1704,30 +1704,30 @@ int main(int argc, char** argv)
 
 				if(validGridP(cvw_i,grid))
 				{
-					testtime2 = gettime();
+					// testtime2 = gettime();
 					// GPU
-					overlapCorrelationMatrixAdditions (alignment, omega, lvw_i, cvw_i, 
-							       &firstRowToCopy, &firstRowToCompute, &firstRowToAdd);
-
-					shiftCorrelationMatrixValues (omega, lvw_i, cvw_i, firstRowToCopy, alignment->correlationMatrix);
-
-					computeCorrelationMatrixPairwise_gpu (alignment, omega, cvw_i, firstRowToCompute, functionData, NULL,NULL, qLD_res);
-
-					// applyCorrelationMatrixAdditions_gpu (omega, cvw_i,alignment->correlationMatrix);
-					applyCorrelationMatrixAdditions (omega, cvw_i,firstRowToAdd,alignment->correlationMatrix);
-
-					// CPU
 					// overlapCorrelationMatrixAdditions (alignment, omega, lvw_i, cvw_i, 
 					// 		       &firstRowToCopy, &firstRowToCompute, &firstRowToAdd);
-			    
+
 					// shiftCorrelationMatrixValues (omega, lvw_i, cvw_i, firstRowToCopy, alignment->correlationMatrix);
-					
-					// computeCorrelationMatrixPairwise (alignment, omega, cvw_i, firstRowToCompute, functionData, NULL,NULL);					
-					
+
+					// computeCorrelationMatrixPairwise_gpu (alignment, omega, cvw_i, firstRowToCompute, functionData, NULL,NULL, qLD_res);
+
+					// // applyCorrelationMatrixAdditions_gpu (omega, cvw_i,alignment->correlationMatrix);
 					// applyCorrelationMatrixAdditions (omega, cvw_i,firstRowToAdd,alignment->correlationMatrix);
+
+					// CPU
+					overlapCorrelationMatrixAdditions (alignment, omega, lvw_i, cvw_i, 
+							       &firstRowToCopy, &firstRowToCompute, &firstRowToAdd);
+			    
+					shiftCorrelationMatrixValues (omega, lvw_i, cvw_i, firstRowToCopy, alignment->correlationMatrix);
 					
-					testtime3 = gettime();
-					testtime4 += testtime3 - testtime2;
+					computeCorrelationMatrixPairwise (alignment, omega, cvw_i, firstRowToCompute, functionData, NULL,NULL);					
+					
+					applyCorrelationMatrixAdditions (omega, cvw_i,firstRowToAdd,alignment->correlationMatrix);
+					
+					// testtime3 = gettime();
+					// testtime4 += testtime3 - testtime2;
 
 					testtime0 = gettime();
 					computeOmegas_gpu(alignment, omega, cvw_i, functionData,NULL);
