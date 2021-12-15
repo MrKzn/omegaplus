@@ -36,6 +36,7 @@
 #include <sys/time.h>
 #include <limits.h>
 #include <ctype.h>
+#include <float.h>
 // qLD ADDED
 #include <stdint.h>
 #include "gpu_kernel/blislike.h"
@@ -426,7 +427,7 @@ unsigned int cs_c;
 // -- OMEGA OPENCL STUFF -- //
 // #define OMEGA_NAME "omega"
 // #define OMEGA_NAME "omega2"
-#define OMEGA_NAME "omega3"
+// #define OMEGA_NAME "omega3"
 // #define OMEGA_NAME "omega4"
 // #define OMEGA_NAME "omega5"
 // #define OMEGA_NAME "omega6"
@@ -442,7 +443,7 @@ unsigned int cs_c;
 // #define OMEGA_NAME "omega18"
 // #define OMEGA_NAME "omega19"
 // #define OMEGA_NAME "omegatest2"
-// #define OMEGA_NAME "omega22"
+#define OMEGA_NAME "omega22"
 #define OMEGA_NAME2 ""
 // #define OMEGA_NAME2 "omega10"
 // #define OMEGA_NAME2 "omega3"

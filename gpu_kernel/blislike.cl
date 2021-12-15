@@ -1981,36 +1981,36 @@ __kernel void omega19 (
 
 // On K80 changed __constant to __global is 700us faster?!!?!? Size of __global buffer doesn't matter! Same with HD8750m
 __kernel void omega22 (
-    __global float *omega, __global unsigned int *index, __global float *LR,
-    __global float *TS,__global int *km, int in_cnt, int wi_load
+    __global float *omega, __global unsigned int *index, __global float *in_cor, __constant float *out_cor,
+    __global float *TS, __global int *in_SNP, __constant int *out_SNP, int in_cnt, int wi_load
 ) {
   const unsigned int G_i = get_global_id(0);
   const unsigned int G_s = get_global_size(0);
-  unsigned int O_inc = G_s / in_cnt, O_i = G_i / in_cnt + in_cnt, I_i = G_i % in_cnt, G_ic = G_i;
+  unsigned int O_inc = G_s / in_cnt, O_i = G_i / in_cnt, I_i = G_i % in_cnt, G_ic = G_i;
 
   unsigned int maxI, i;
   float n, d, tmpW, maxW = 0.0f, R_L;
   int k_m, m_k, k_msel2, m_ksel2;
 
-  m_k = km[I_i];
+  m_k = in_SNP[I_i];
   m_ksel2 = (m_k * (m_k-1)) / 2;
 
-  R_L = LR[I_i];
+  R_L = in_cor[I_i];
 
   #pragma unroll 4
   for(i=0; i<wi_load; i++){
     // O_i = G_ic / in_cnt + in_cnt;
 	  // I_i = G_ic % in_cnt;
 
-    k_m = km[O_i];
+    k_m = out_SNP[O_i];
     k_msel2 = (k_m * (k_m-1)) / 2;
 
     // m_k = km[I_i];
     // m_ksel2 = (m_k * (m_k-1)) / 2;
 
-    n = (LR[O_i] + R_L) / (k_msel2 + m_ksel2);
+    n = (out_cor[O_i] + R_L) / (k_msel2 + m_ksel2);
 
-    d = (TS[G_ic] - LR[O_i] - R_L) / (k_m * m_k) + DENOMINATOR_OFFSET_GPU;
+    d = (TS[G_ic] - out_cor[O_i] - R_L) / (k_m * m_k) + DENOMINATOR_OFFSET_GPU;
 
     tmpW = n / d;
 
