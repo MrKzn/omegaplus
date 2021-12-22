@@ -348,7 +348,7 @@ void computeCorrelationMatrixPairwise_gpu(alignment_struct * alignment, omega_st
 
 /*   ---  GENERAL OPENCL  ---   */
 // macro define needed for deprecated warning
-#define CL_TARGET_OPENCL_VERSION 110
+#define CL_TARGET_OPENCL_VERSION 120
 #define CL_USE_DEPRECATED_OPENCL_1_2_APIS
 #include <CL/cl.h>
 
@@ -384,26 +384,26 @@ unsigned int cs_c;
 float * correlate_gpu(uint32_t * tableA, unsigned int * tableA_bitcount, int tableAsize, int compressed_snp_size, int snp_size);
 
 /*   ---  OMEGA OPENCL  ---   */
-// #define OMEGA_NAME2 "omega3"
-#define OMEGA_NAME2 "omega2"
 #define OMEGA_NAME1 "omega1"
+#define OMEGA_NAME2 "omega2"
+// #define OMEGA_NAME2 "omega3"
 
 cl_mem omega_buffer;
 cl_mem TS_buffer;
 cl_mem LR_buffer;
 cl_mem km_buffer;
 cl_mem index_buffer;
-cl_kernel omega_kernel2;
 cl_kernel omega_kernel1;
+cl_kernel omega_kernel2;
 
 size_t wi_ind;
 cl_uint steps_thresh;
 size_t max_group_size;
-cl_long max_omegas, max_LRkm, max_TS;
+cl_ulong max_TS;
 
 // GPU setting
 #define GPU_GROUP_SIZE 128		// work-group size / local size for kernel II (omega2)
-#define WAVE_CU 24				// wavefronts/warps per compute unit			
+#define WAVE_CU 24				// wavefronts/warps per compute unit
 
 void computeOmegas_gpu (alignment_struct * alignment, omega_struct * omega, int omegaIndex, void * threadData, cor_t ** correlationMatrix);
 

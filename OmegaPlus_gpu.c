@@ -44,20 +44,22 @@ inline cl_ulong minlu(cl_ulong a, cl_ulong b)
     return b;
 }
 
-/*   ---  GPU Omega functions  ---   */
+/*   ---  GPU Omega interfacing functions  ---   */
 void computeOmega_gpu1(float * omegas, float * LR, int * km, float * TS, int tot_SNP, int in_cnt, unsigned int tot_step){
 	// static cl_ulong p_start, p_end, p_total=0;
 	int err=0;
 
-	// //set kernel arguments
-	err = clSetKernelArg(omega_kernel1, 4, sizeof(int), &in_cnt);
-	printCLErr(err,__LINE__,__FILE__);
-
+    // set work-group local size to maximum work-group size
+    // set global work-size to nearest integer multiple of total computation steps
 	const size_t local = max_group_size;
 	const size_t global = (tot_step + local - 1) & -local;
 
-	// write values to GPU buffers
-	// LRkm
+	// set inner loop iterations kernel argument
+	err = clSetKernelArg(omega_kernel1, 4, sizeof(int), &in_cnt);
+	printCLErr(err,__LINE__,__FILE__);
+
+	// write input buffers to the GPU memory
+	// LR
 	err=clEnqueueWriteBuffer(
 			io_queue, LR_buffer, CL_FALSE, 0,
 			tot_SNP*sizeof(float), LR,
@@ -81,27 +83,25 @@ void computeOmega_gpu1(float * omegas, float * LR, int * km, float * TS, int tot
 			);
 	printCLErr(err,__LINE__,__FILE__);
 
-	//deploy kernel to execute program
+	// deploy kernel to execute program with global size equal to 
 	err=clEnqueueNDRangeKernel(
-			io_queue, omega_kernel1, 1, NULL, &global, &local,  //change name to 'omega_kernel1'
+			io_queue, omega_kernel1, 1, NULL, &global, &local,
 			1, &events[0], &events[1]
 			);
 	printCLErr(err,__LINE__,__FILE__);
 
+    // Kernel execution profiling
 	// clWaitForEvents(1, &events[1]);
-
     // err=clGetEventProfilingInfo(events[1], CL_PROFILING_COMMAND_START, sizeof(cl_ulong),
     //                         &p_start, NULL);
 	// printCLErr(err,__LINE__,__FILE__);
     // err=clGetEventProfilingInfo(events[1], CL_PROFILING_COMMAND_END, sizeof(cl_ulong),
     //                         &p_end, NULL);
 	// printCLErr(err,__LINE__,__FILE__);
-
 	// p_total += p_end - p_start;
-
 	// printf("1: %lu\n",p_total);
 
-	//read back omega values in omega buffer
+	// read back omega output buffer in omega array
 	err=clEnqueueReadBuffer(
 			io_queue, omega_buffer, CL_FALSE, 0,
 			tot_step*sizeof(float), omegas,
@@ -110,22 +110,24 @@ void computeOmega_gpu1(float * omegas, float * LR, int * km, float * TS, int tot
 			);
 	printCLErr(err,__LINE__,__FILE__);
 
-	clWaitForEvents(1, &events[2]);
+	// ensure finishing enqueued events
+    clFinish(io_queue);
 }
 
 void computeOmega_gpu2(float * omegas, unsigned int * indexes, float * LR, int * km, float * TSs, int tot_SNP_pad, 
 						int wi_load, int in_cnt_pad, unsigned int tot_step_pad, int wi_func, size_t global){
 	// static cl_ulong p_start, p_end, p_total=0;
-
 	int err=0;
+
+    // set work-group local size to optimal found value (128)
     const size_t local = GPU_GROUP_SIZE;
 
-	// //set kernel arguments
+	// set inner loop iterations and work-item load kernel arguments
 	err |= clSetKernelArg(omega_kernel2, 5, sizeof(cl_int), &in_cnt_pad);
 	err |= clSetKernelArg(omega_kernel2, 6, sizeof(cl_int), &wi_load);
 	printCLErr(err,__LINE__,__FILE__);
 
-	// write values to GPU buffers
+	// write input buffers to the GPU memory
 	// LR
 	err=clEnqueueWriteBuffer(
 			io_queue, LR_buffer, CL_FALSE, 0,
@@ -150,27 +152,25 @@ void computeOmega_gpu2(float * omegas, unsigned int * indexes, float * LR, int *
 			);
 	printCLErr(err,__LINE__,__FILE__);
 
-	//deploy kernel to execute program
+	// deploy kernel to execute program with set local and global size
 	err=clEnqueueNDRangeKernel(
 			io_queue, omega_kernel2, 1, NULL, &global, &local,
 			1, &events[0], &events[1]
 			);
 	printCLErr(err,__LINE__,__FILE__);
 
+    // Kernel execution profiling
 	// clWaitForEvents(1, &events[1]);
-
     // err=clGetEventProfilingInfo(events[1], CL_PROFILING_COMMAND_START, sizeof(cl_ulong),
     //                         &p_start, NULL);
 	// printCLErr(err,__LINE__,__FILE__);
     // err=clGetEventProfilingInfo(events[1], CL_PROFILING_COMMAND_END, sizeof(cl_ulong),
     //                         &p_end, NULL);
 	// printCLErr(err,__LINE__,__FILE__);
-
 	// p_total += p_end - p_start;
-
 	// printf("2: %lu\n",p_total);
 
-	//read back omega values in omega buffer
+	// read back omega output buffer in omega array
 	err=clEnqueueReadBuffer(
 			io_queue, omega_buffer, CL_FALSE, 0,
 			wi_func*sizeof(float), omegas,
@@ -179,7 +179,7 @@ void computeOmega_gpu2(float * omegas, unsigned int * indexes, float * LR, int *
 			);
 	printCLErr(err,__LINE__,__FILE__);
 
-	//read back indexes values in indexes buffer
+	// read back indexes output buffer in indexes array
 	err=clEnqueueReadBuffer(
 			io_queue, index_buffer, CL_FALSE, 0,
 			wi_func*sizeof(unsigned int), indexes,
@@ -187,9 +187,11 @@ void computeOmega_gpu2(float * omegas, unsigned int * indexes, float * LR, int *
 			);
 	printCLErr(err,__LINE__,__FILE__);
 
-	clWaitForEvents(1, &events[2]);
+	// ensure finishing enqueued events
+    clFinish(io_queue);
 }
 
+/*   ---  GPU Omega data preparation & result processing function  ---   */
 void computeOmegaValues_gpu (omega_struct * omega, int omegaIndex, cor_t ** correlationMatrix, void * threadData)
 {
 	// static double mtime0, mtime1, mtimetot = .0;
@@ -201,7 +203,7 @@ void computeOmegaValues_gpu (omega_struct * omega, int omegaIndex, cor_t ** corr
 	static int * km = NULL;
 	int i, j, maxLeftIndex=0, maxRightIndex=0, R_SNP_pad, L_SNP_pad, tot_SNP_pad,
 	
-	tot_step, tot_step_pad, L_SNP, R_SNP, tot_SNP, wi_load, wi_func, L_i=0, R_i=0,
+	tot_step, tot_step_pad, L_SNP, R_SNP, tot_SNP, wi_load, L_i=0, R_i=0,
 	
 	omegaSNIPIndex = omega[omegaIndex].omegaPos - omega[omegaIndex].leftIndex,
 
@@ -217,20 +219,15 @@ void computeOmegaValues_gpu (omega_struct * omega, int omegaIndex, cor_t ** corr
 	R_SNP = rightMaxIndex - rightMinIndex + 1;
 	tot_step = L_SNP * R_SNP;
 
-	if(tot_step < steps_thresh)	// Threshold
-    // if(1)	// Threshold
-    // if(0)
-	{
-		/* Maybe try padding only the number of inner loop iterations to a mulitple of a smaller work-group size, e.g. 128
-        and pad the number of outer loop iterations to the minimal number needed (see omega22 colab). This would result in 
-        solely coalesced memory accesses with still minimal number of total computation steps. */
-        /* From execution times in 'FinalTimes2.ods' this doesn't seem to improve performance. */
-		tot_SNP = L_SNP + R_SNP;
+    // check if the number of computation steps is larger than the GPU buffer size
+    if(tot_step > max_TS){
+        printf("Grid point %d is skipped due to insufficient GPU memory\n",omegaIndex);
+        return;
+    }
 
-        // if(work_items > max_omegas || tot_step > max_TS || tot_SNP > max_LRkm){
-        //     printf("Grid point %d is skipped due to insufficient GPU memory\n",omegaIndex);
-        //     return;
-        // }
+	if(tot_step < steps_thresh)	// Threshold
+	{
+		tot_SNP = L_SNP + R_SNP;
 
         omegas = malloc(sizeof(*omegas)*tot_step);
         LR = malloc(sizeof(*LR)*tot_SNP);
@@ -248,13 +245,7 @@ void computeOmegaValues_gpu (omega_struct * omega, int omegaIndex, cor_t ** corr
             {
                 LR[L_i] = correlationMatrix[omegaSNIPIndex][i];			// LSs
 
-                // MAYBE? ADDITIONS NEEDED?
-                // s_i = omegaSNIPIndex + omega[omegaIndex].leftIndex;
-                // s_j = i + omega[omegaIndex].leftIndex;
-                // // alignment->correlationMatrix[i][j] = qLD_res[s_i*alignment->segsites+s_j];
-                // LR[L_i] = qLD_res[s_i*alignment->segsites+s_j];
-
-                km[L_i] = omegaSNIPIndex - i + 1;							// ks
+                km[L_i] = omegaSNIPIndex - i + 1;						// ks
 
                 for(j=rightMinIndex;j<=rightMaxIndex;j++) // Right Side
                 {
@@ -306,7 +297,7 @@ void computeOmegaValues_gpu (omega_struct * omega, int omegaIndex, cor_t ** corr
                     {
                         LR[L_i] = correlationMatrix[omegaSNIPIndex][i];			// LSs
 
-                        km[L_i] = omegaSNIPIndex - i + 1;							// ks
+                        km[L_i] = omegaSNIPIndex - i + 1;						// ks
 
                         L_i++;
                     }
@@ -342,15 +333,14 @@ void computeOmegaValues_gpu (omega_struct * omega, int omegaIndex, cor_t ** corr
             R_SNP_pad = (R_SNP + GPU_GROUP_SIZE - 1) & -GPU_GROUP_SIZE;
             set_wi = ((wi_ind + R_SNP_pad - 1) / R_SNP_pad) * R_SNP_pad;
             tot_step_pad = L_SNP * R_SNP_pad;
-            wi_func = min(tot_step_pad, set_wi);		// not needed if dynamic kernel execution is used with step thresh
             wi_load = (tot_step_pad + set_wi - 1) / set_wi;
 
             tot_step_pad = wi_load * set_wi;
             L_SNP_pad = (tot_step_pad + R_SNP_pad - 1) / R_SNP_pad;
             tot_SNP_pad = R_SNP_pad + L_SNP_pad;
 
-            omegas = malloc(sizeof(*omegas)*wi_func);
-            indexes = malloc(sizeof(*indexes)*wi_func);
+            omegas = malloc(sizeof(*omegas)*set_wi);
+            indexes = malloc(sizeof(*indexes)*set_wi);
             LR = malloc(sizeof(*LR)*tot_SNP_pad);
             km = malloc(sizeof(*km)*tot_SNP_pad);
             TS_local = TS = malloc(sizeof(*TS)*tot_step_pad);
@@ -403,10 +393,10 @@ void computeOmegaValues_gpu (omega_struct * omega, int omegaIndex, cor_t ** corr
             }
 
             // mtime0 = gettime();
-            computeOmega_gpu2(omegas, indexes, LR, km, TS, tot_SNP_pad, wi_load, R_SNP_pad, tot_step_pad, wi_func, set_wi);
+            computeOmega_gpu2(omegas, indexes, LR, km, TS, tot_SNP_pad, wi_load, R_SNP_pad, tot_step_pad, set_wi, set_wi);
             // mtime1 = gettime();
 
-            for(i=0;i<wi_func;i++)
+            for(i=0;i<set_wi;i++)
             {
                 tmpW = omegas[i];
                 if(tmpW>maxW)
@@ -424,15 +414,14 @@ void computeOmegaValues_gpu (omega_struct * omega, int omegaIndex, cor_t ** corr
             L_SNP_pad = (L_SNP + GPU_GROUP_SIZE - 1) & -GPU_GROUP_SIZE;
             set_wi = ((wi_ind + L_SNP_pad - 1) / L_SNP_pad) * L_SNP_pad;
             tot_step_pad = R_SNP * L_SNP_pad;
-            wi_func = min(tot_step_pad, set_wi);		// not needed if dynamic kernel execution is used with step thresh
             wi_load = (tot_step_pad + set_wi - 1) /  set_wi;
 
             tot_step_pad = wi_load * set_wi;
             R_SNP_pad = (tot_step_pad + L_SNP_pad - 1) / L_SNP_pad;
             tot_SNP_pad = L_SNP_pad + R_SNP_pad;
 
-            omegas = malloc(sizeof(*omegas)*wi_func);
-            indexes = malloc(sizeof(*indexes)*wi_func);
+            omegas = malloc(sizeof(*omegas)*set_wi);
+            indexes = malloc(sizeof(*indexes)*set_wi);
             LR = malloc(sizeof(*LR)*tot_SNP_pad);
             km = malloc(sizeof(*km)*tot_SNP_pad);
             TS_local = TS = malloc(sizeof(*TS)*tot_step_pad);
@@ -485,10 +474,10 @@ void computeOmegaValues_gpu (omega_struct * omega, int omegaIndex, cor_t ** corr
             }
 
             // mtime0 = gettime();
-            computeOmega_gpu2(omegas, indexes, LR, km, TS, tot_SNP_pad, wi_load, L_SNP_pad, tot_step_pad, wi_func, set_wi);
+            computeOmega_gpu2(omegas, indexes, LR, km, TS, tot_SNP_pad, wi_load, L_SNP_pad, tot_step_pad, set_wi, set_wi);
             // mtime1 = gettime();
 
-            for(i=0;i<wi_func;i++)
+            for(i=0;i<set_wi;i++)
             {
                 tmpW = omegas[i];
                 if(tmpW>maxW)
@@ -523,7 +512,7 @@ void computeOmegas_gpu (alignment_struct * alignment, omega_struct * omega, int 
 }
 
 
-/*   ---  GPU qLD functions  ---   */
+/*   ---  GPU quickLD functions  ---   */
 static unsigned int round_up_mult(unsigned int x, unsigned int mult) {
     return ((x + mult - 1) / mult) * mult;
 }
@@ -1412,17 +1401,17 @@ void gpu_init(void)
     free(name);
     free(vendor);
 
-    // int gpu = 0, result;
-    // if(num_devices > 1)
-    // {
-    //     do{
-    //         printf("Which GPU do you want to use (enter # and press enter): ");
-    //         result = scanf("%d", &gpu);
-    //         if(result == 0)
-    //             while (fgetc(stdin) != '\n'); // Read until a newline is found
-    //     } while (result == EOF || result == 0 || gpu >= num_devices);
-    // }
-    int gpu = num_devices-1;
+    int gpu = 0, result;
+    if(num_devices > 1)
+    {
+        do{
+            printf("Which GPU do you want to use (enter # and press enter): ");
+            result = scanf("%d", &gpu);
+            if(result == 0)
+                while (fgetc(stdin) != '\n'); // Read until a newline is found
+        } while (result == EOF || result == 0 || gpu >= num_devices);
+    }
+    // int gpu = num_devices-1;
 
     context=clCreateContext(NULL, 1, &devices[gpu], NULL, NULL, &err);
     printCLErr(err,__LINE__,__FILE__);
@@ -1456,39 +1445,35 @@ void gpu_init(void)
     //                                    &err);
     // printCLErr(err,__LINE__,__FILE__);
 
-	// create Omega kernel
-	omega_kernel2=clCreateKernel(program, OMEGA_NAME2, &err);
-	printCLErr(err,__LINE__,__FILE__);
-
-	// create second Omega kernel
+    // create Omega kernel I
 	omega_kernel1=clCreateKernel(program, OMEGA_NAME1, &err);
 	printCLErr(err,__LINE__,__FILE__);
 
-	// Get workgroup size or preferred size
+	// create Omega kernel II
+	omega_kernel2=clCreateKernel(program, OMEGA_NAME2, &err);
+	printCLErr(err,__LINE__,__FILE__);
+
+	// Get workgroup size or preferred size (wavefront/warp size)
     size_t pref_group_size;
 	err = clGetKernelWorkGroupInfo(omega_kernel1, devices[gpu],CL_KERNEL_WORK_GROUP_SIZE, sizeof(size_t), &max_group_size, NULL);
-	// printf("Max kernel work-group size: %lu\n",max_group_size);	// 256
 	err = clGetKernelWorkGroupInfo(omega_kernel2, devices[gpu],CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE, sizeof(size_t), &pref_group_size, NULL);
-	// printf("Work-group pref. multiple: %lu\n",pref_group_size);	// 64
 
 	// Get number of work groups / compute units
     cl_uint comp_units;
-
 	err=clGetDeviceInfo(devices[gpu], CL_DEVICE_MAX_COMPUTE_UNITS, sizeof(cl_uint),
                         &comp_units, NULL);
     printCLErr(err,__LINE__,__FILE__);
 
-    /* Move this to a header file in the final code, as well as other important parameters */
-	comp_units *= 2;    // DELETE THIS AT THE END     K80 has 13x2 CUs so w_size*32*2=32 w/CU
-    wi_ind = pref_group_size * WAVE_CU * (comp_units);
+    // set indicative global work-size for kernel II
+    wi_ind = pref_group_size * WAVE_CU * comp_units;
 	
     printf("Compute units: %u\n", comp_units);
     printf("Set work-items indication: %lu\n", wi_ind);
 
-    steps_thresh = comp_units * pref_group_size * 32;
+    // set optimal occupancy threshold for number of computation steps
+    steps_thresh = pref_group_size * 32 * comp_units;
 
 	cl_ulong total;
-
     // NOTE: assume device has enough memory
     // TODO: does performance degrade if k is much less than KC?
     cl_ulong a_buffer_size=GPU_BLOCK_MC * GPU_BLOCK_KC * sizeof(inputDataType_x32);
@@ -1506,26 +1491,36 @@ void gpu_init(void)
                         &global_mem, NULL);
     printCLErr(err,__LINE__,__FILE__);
 
-    // cl_ulong omega_buffer_size 	= 512 * 40000 * sizeof(float);		// # work items is unknown here, see omega2
-	// cl_ulong LRkm_buffer_size 	= 2 * GPU_BLOCK_MC * sizeof(float);
-	// cl_ulong TS_buffer_size 	= omega_buffer_size;
+    // calculate the remaining available bytes with error margin
+    cl_ulong remain = (cl_ulong)(0.85 * (global_mem - total));
+    
+    // if retrieving global mem size gives wrong output specify static value
+    // remain = GPU_BLOCK_MC * 8000 * sizeof(float);
+    
+    // specify #sub-region buffers (L, R, k, m, omega*, index*)
+    const int n_sub_buf = 6;
+    
+    // calculate optimal memory distribution with abc formula
+    cl_uint D = (int)sqrt(pow(n_sub_buf,2) + 4*remain);
+    cl_uint sub_buf_size = (-n_sub_buf + D) / 2;
 
-    // Divide remaining memory correctly over needed buffers
-    cl_ulong remain = (cl_ulong)(0.8 * (global_mem - total));   // Does not work on HD8750M, makes kernels very slow
-    remain = GPU_BLOCK_MC * 8000 * sizeof(float);
+    // set omega/index buffer size to either the steps threshold for kernel I or to optimal distribution
+    cl_ulong omega_buffer_size 	= minlu(max_alloc, ((max(steps_thresh * sizeof(float), sub_buf_size) 
+                                    + 4096 - 1) / 4096) * 4096);
+    // set LR/km buffer size to optimal distribution (2 sub buffers in both LR and km)
+    cl_ulong LRkm_buffer_size 	= minlu(max_alloc, ((2 * sub_buf_size
+                                    + 4096 - 1) / 4096) * 4096);
+    // set TS buffer size to optimal distribution (sqrt(sub_buf_size))
+    cl_ulong TS_buffer_size 	= minlu(max_alloc, ((remain - 6 * sub_buf_size) 
+                                    / 4096) * 4096);
 
-    // double omega_portion = 1.0629/*34.0128*/, LRkm_portion = 5314.5, TS_portion = 1.0629;
-    double omega_portion = 0.5, LRkm_portion = 0.003, TS_portion = 0.5;
-
-	cl_ulong omega_buffer_size 	= minlu(max_alloc, ((cl_ulong)(remain * omega_portion) / GPU_BLOCK_MC) * GPU_BLOCK_MC);		// # work items is unknown here, see omega2
-	cl_ulong LRkm_buffer_size 	= minlu(max_alloc, ((cl_ulong)(remain * LRkm_portion) / GPU_BLOCK_MC) * GPU_BLOCK_MC);
-	cl_ulong TS_buffer_size 	= minlu(max_alloc, ((cl_ulong)(remain * TS_portion) / GPU_BLOCK_MC) * GPU_BLOCK_MC);
-
-	total += 2 * omega_buffer_size + 2 * LRkm_buffer_size + TS_buffer_size;
+	total += 2*omega_buffer_size + 2*LRkm_buffer_size + TS_buffer_size;
 
     if(total > global_mem)
     {
-        printf("not enough global storage!\n");
+        printf("GPU memory allocation failed.\n");
+        printf("Either wrong global mem. size is read by OpenCL or global mem. size is small (< 1GB)\n");
+        printf("Try editing 'max_reg_S' in 'OmegaPlus_gpu.c'\n");
         exit(1);
     }
     if((a_buffer_size > max_alloc) ||
@@ -1533,14 +1528,15 @@ void gpu_init(void)
        (c_buffer_size > max_alloc) ||
 	   (omega_buffer_size > max_alloc) ||
 	   (LRkm_buffer_size > max_alloc) ||
-	   TS_buffer_size > max_alloc)
+	   (TS_buffer_size > max_alloc))
     {
-        printf("some buffer is too big!\n");
+        printf("A allocated GPU buffer is too big.\n");
+        printf("Either wrong global mem. size is read by OpenCL or global mem. size is small (< 1GB)\n");
+        printf("Try editing 'max_reg_S' in 'OmegaPlus_gpu.c'\n");
         exit(1);
     }
 
-    max_omegas = omega_buffer_size / sizeof(float);     // DELETE THIS AT THE END?
-    max_LRkm = LRkm_buffer_size / sizeof(float);
+    // get the maximum number of computation steps for checking max mem. bounds
     max_TS = TS_buffer_size / sizeof(float);
 
     // NOTE: this is what's being passed in for the other GEMM implementation

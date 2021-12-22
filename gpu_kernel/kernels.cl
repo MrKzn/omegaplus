@@ -644,9 +644,7 @@ __kernel void omega1 (
     __global float *omega, __global float *LR, __global float *TS, __global int *km, int in_cnt
 ) {
   const unsigned int G_i = get_global_id(0);
-
-  unsigned int O_i = G_i / in_cnt + in_cnt;
-  unsigned int I_i = G_i % in_cnt;
+  unsigned int O_i = G_i / in_cnt + in_cnt, I_i = G_i % in_cnt;
 
   int k_m = km[O_i];
   int k_msel2 = (k_m * (k_m-1)) / 2;
