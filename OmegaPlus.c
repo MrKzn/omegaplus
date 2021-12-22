@@ -872,7 +872,7 @@ int main(int argc, char** argv)
 	int maxomegamaxLeftIndex = -1;
 	int maxomegamaxRightIndex = -1;
 
-	double time0, time1, totalTimeL=.0, totalTimeG0 = gettime(), totalTimeG1, testtime0, testtime1, testtime=.0, testtime2, testtime3, testtime4=.0;
+	double time0, time1, totalTimeL=.0, totalTimeG0 = gettime(), totalTimeG1;
 
   	char** recfile = malloc(sizeof(char*));
   	      *recfile = NULL;
@@ -1453,7 +1453,6 @@ int main(int argc, char** argv)
 
 		if(!validGridP(cvw_i,grid) && genGridList[0]!=-1)
 		{				
-			// testtime2 = gettime();
 			genGridList_size=i;
 
 			leftSNPindex = omega[genGridList[0]].leftIndex;
@@ -1556,10 +1555,7 @@ int main(int argc, char** argv)
 			}
 
 			dp_on_tiles_overlap_ptr (first_group_index, last_group_index, workgroup_map_ptr, overlap_workgroup_map_ptr, overlap, first_group_index, alignment,leftSNPindex, rightSNPindex);
-			// testtime3 = gettime();
-			// testtime4 += testtime3 - testtime2;
 
-			// testtime0 = gettime();
 			int * threadload = calloc(threads, sizeof(int));
 			int * threadloadloc = calloc(threads, sizeof(int));
 			int ** threadgrid = malloc(threads*sizeof(int*));
@@ -1659,8 +1655,6 @@ int main(int argc, char** argv)
 				workgroup_map_ptr_mem=NULL;
 			}				
 			i=0;
-			// testtime1 = gettime();
-			// testtime += testtime1 - testtime0;
 
 		}
 		
@@ -1687,13 +1681,8 @@ int main(int argc, char** argv)
 		free(genGridList);
 #else
 
-// GPU
 #ifdef _USE_GPU
-			// testtime2 = gettime();
-			// qLD_res = correlate_gpu(alignment->compressedArrays[0], BCtable, alignment->segsites, alignment->siteSize, alignment->sequences);
-			// testtime3 = gettime();
-			// testtime4 += testtime3 - testtime2;
-			// printf("qLD: %f\n",testtime4);
+			qLD_res = correlate_gpu(alignment->compressedArrays[0], BCtable, alignment->segsites, alignment->siteSize, alignment->sequences);
 
 		    alignment->correlationMatrix = createCorrelationMatrix(alignment->correlationMatrix,matrixSizeMax);
 		    
@@ -1704,34 +1693,17 @@ int main(int argc, char** argv)
 
 				if(validGridP(cvw_i,grid))
 				{
-					// testtime2 = gettime();
-					// GPU
-					// overlapCorrelationMatrixAdditions (alignment, omega, lvw_i, cvw_i, 
-					// 		       &firstRowToCopy, &firstRowToCompute, &firstRowToAdd);
-
-					// shiftCorrelationMatrixValues (omega, lvw_i, cvw_i, firstRowToCopy, alignment->correlationMatrix);
-
-					// computeCorrelationMatrixPairwise_gpu (alignment, omega, cvw_i, firstRowToCompute, functionData, NULL,NULL, qLD_res);
-
-					// applyCorrelationMatrixAdditions (omega, cvw_i,firstRowToAdd,alignment->correlationMatrix);
-
-					// CPU
 					overlapCorrelationMatrixAdditions (alignment, omega, lvw_i, cvw_i, 
 							       &firstRowToCopy, &firstRowToCompute, &firstRowToAdd);
-			    
-					shiftCorrelationMatrixValues (omega, lvw_i, cvw_i, firstRowToCopy, alignment->correlationMatrix);
-					
-					computeCorrelationMatrixPairwise (alignment, omega, cvw_i, firstRowToCompute, functionData, NULL,NULL);					
-					
-					applyCorrelationMatrixAdditions (omega, cvw_i,firstRowToAdd,alignment->correlationMatrix);
-					
-					// testtime3 = gettime();
-					// testtime4 += testtime3 - testtime2;
 
-					testtime0 = gettime();
+					shiftCorrelationMatrixValues (omega, lvw_i, cvw_i, firstRowToCopy, alignment->correlationMatrix);
+
+					computeCorrelationMatrixPairwise_gpu (alignment, omega, cvw_i, firstRowToCompute, functionData, NULL,NULL, qLD_res);
+
+					applyCorrelationMatrixAdditions (omega, cvw_i,firstRowToAdd,alignment->correlationMatrix);
+
 					computeOmegas_gpu(alignment, omega, cvw_i, functionData,NULL);
-					testtime1 = gettime();
-					testtime += testtime1 - testtime0;
+
 					lvw_i = cvw_i;
 				}
 
@@ -1749,7 +1721,6 @@ int main(int argc, char** argv)
 			
 			if(validGridP(cvw_i,grid))
 			  {		
-				  testtime2 = gettime();
 			    overlapCorrelationMatrixAdditions (alignment, omega, lvw_i, cvw_i, 
 							       &firstRowToCopy, &firstRowToCompute, &firstRowToAdd);
 			    
@@ -1758,12 +1729,9 @@ int main(int argc, char** argv)
 			    computeCorrelationMatrixPairwise (alignment, omega, cvw_i, firstRowToCompute, functionData, NULL,NULL);					
 			    
 			    applyCorrelationMatrixAdditions (omega, cvw_i,firstRowToAdd,alignment->correlationMatrix);
-			    testtime3 = gettime();
-				testtime4 += testtime3 - testtime2;
-			    testtime0 = gettime();
+			    
 			    computeOmegas (alignment, omega, cvw_i, functionData,NULL);
-			    testtime1 = gettime();
-				testtime += testtime1 - testtime0;
+
 			    lvw_i = cvw_i;
 			  }
 			
@@ -1772,8 +1740,6 @@ int main(int argc, char** argv)
 #endif		    
 #endif
 #endif
-		printf("LD: %f\n",testtime4);
-		printf("Omega: %f\n",testtime);
 	    }
 	  else
 	    {
